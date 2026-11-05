@@ -1,0 +1,11 @@
+{
+  "name": "ncm-integration-skill",
+  "owner": { "name": "harublank0-0" },
+  "plugins": [
+    {
+      "name": "ncm-integration",
+      "source": "./",
+      "description": "Claude skill for integrating the Nepal Can Move (NCM) courier API."
+    }
+  ]
+}

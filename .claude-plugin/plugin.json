@@ -1,0 +1,18 @@
+{
+  "name": "ncm-integration",
+  "description": "Claude skill for integrating the Nepal Can Move (NCM) courier API: parcel creation, rates, branches, webhooks, status sync, returns, COD and reconciliation.",
+  "license": "MIT",
+  "repository": "https://github.com/harublank0-0/ncm-integration-skill",
+  "keywords": [
+    "ncm",
+    "nepal-can-move",
+    "courier",
+    "logistics",
+    "ecommerce",
+    "nepal"
+  ],
+  "author": {
+    "name": "harublank0-0",
+    "url": "https://github.com/harublank0-0"
+  }
+}
