@@ -126,8 +126,8 @@ describes each `type` with the words create takes as `delivery_type`
 (`Pickup/Collect` is "Door2Door (NCM pickup & delivery)", `D2B` is "Door2Branch
 (...)"), so the pairing is all but stated. The doc never says outright to send
 one for the other, so the pairing below is marked [inferred]; the names and
-charges in each row are [doc]. The label column is [doc]:
-"delivery_type returns "Office" for D2B/B2B orders and "Home" for all others."
+charges in each row are [doc]. The label column is [doc]: labels report
+`Office` for D2B and B2B orders and `Home` for all others.
 
 | Service | Rate `type` | Create `delivery_type` | Label `delivery_type` | Charge, as the rate table words it |
 |---|---|---|---|---|

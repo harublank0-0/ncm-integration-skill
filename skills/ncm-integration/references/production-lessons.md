@@ -9,8 +9,9 @@ The numbers marked *reported* come from that team's own production
 investigation (aggregate counts, late 2026). They weren't independently checked;
 use them to size things, not as facts about NCM.
 
-That integration was built against the v1 API doc (dated `251222`). Where the
-API doc v2 changes what it did, the row says so.
+That integration was built against the v1 API doc (dated `251222`). What the
+API doc v2 changes about it is listed under
+[Out of date since API doc v2](#out-of-date-since-api-doc-v2).
 
 ## Patterns worth copying
 
@@ -88,7 +89,7 @@ Starting points, not NCM's limits [observed].
 Their code follows the v1 doc here; don't copy these parts.
 
 - Pickup tickets go to the v1 doc's `POST /api/v2/vendor/ticket/create`, with the nearest branch written into the message. API doc v2 lists only `POST /api/v2/vendor/ticket/create/new`, and a `Pickup` ticket needs a `branch` field naming one of the account's assigned pickup branches.
-- Their daily budgets assume 200 creates and 5,000 reads; API doc v2 gives 1,000 and 20,000.
+- Anything sized against the v1 doc's daily limits (200 creates, 5,000 reads) can be resized: API doc v2 gives 1,000 and 20,000.
 - They call rating stats and ticket detail as undocumented endpoints. Both are documented now; the rating shape they assumed matches, and ticket detail's status is a boolean at `ticket.status`.
 
 ## Things they learned about NCM
