@@ -55,14 +55,14 @@ mentions NCM or Nepal Can Move.
   Guidance kept only from that older document is labelled `[v1 doc]`.
 - Nothing was checked against NCM's live API. Claims are labelled `[doc]`,
   `[v1 doc]`, `[inferred]`, `[observed]`, `[reported]`, `[recommended]`,
-  `[unknown]` or `[NCM, date]`. Confirm anything labelled `[v1 doc]`,
-  `[inferred]`, `[observed]`, `[reported]` or `[unknown]` with NCM or a demo
-  token before depending on it.
+  `[unknown]` or `[NCM, date]`. Confirm anything labelled `[inferred]`,
+  `[observed]`, `[reported]` or `[unknown]` with NCM or a demo token before
+  depending on it; `[v1 doc]` is superseded and only helps recognise old code.
 - Not affiliated with Nepal Can Move.
 
 ## Open questions for NCM
 
-NCM's documents leave 24 things unspecified that an integration depends on:
+NCM's documents leave many things unspecified that an integration depends on:
 cancellation, rate-limit scope, the comment webhook, branch ids, label barcodes
 and more. They're tracked in
 [`skills/ncm-integration/references/open-questions.md`](skills/ncm-integration/references/open-questions.md).

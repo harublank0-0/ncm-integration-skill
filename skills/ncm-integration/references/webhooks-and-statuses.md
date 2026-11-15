@@ -214,7 +214,7 @@ the parcel exists:
    URL, with a **non-secret account id in the path** and a secret in the query.
    Two workable designs:
    - **Random secret per account**, stored hashed: `/webhooks/ncm/<account-id>?token=<secret>`. Intake looks the account up by id and compares in constant time. Rotation per account: store the new hash beside the old for a window, then drop the old. Needs the database at intake.
-   - **Derived secret with a version in the path**: `/webhooks/ncm/<account-id>/<version>?token=HMAC(server_key, "<account-id>:<version>")`. Intake verifies with no database, so it keeps receiving while the database is down. The worker rejects a version below the account's minimum accepted version. Rotation per account: register the URL for the next version with NCM (portal or `POST /api/v2/vendor/webhook`), keep accepting the old version for a window, since NCM may already be sending to it, then raise the minimum. To revoke a leaked URL, raise the minimum at once. `server_key` never changes for either.
+   - **Derived secret with a version in the path**: `/webhooks/ncm/<account-id>/<version>?token=HMAC(server_key, "<account-id>:<version>")`. Intake verifies with no database, so it keeps receiving while the database is down. The worker rejects a version below the account's minimum accepted version. Rotation per account: register the URL for the next version with NCM (portal or `POST /api/v2/vendor/webhook`), keep accepting the old version for a window, since NCM may already be sending to it, then raise the minimum. To revoke a leaked URL, raise the minimum at once. Intake can't see the minimum without the database, so events to a revoked version are still stored until the worker drops them; give intake a cached copy of each account's minimum, or rate-limit it per account, if a leaked URL filling the inbox matters. `server_key` never changes for either.
    
    Either way, keep the query string out of access logs, and never queue the secret with the event.
 2. **Acknowledge fast and durably.**
@@ -296,8 +296,9 @@ the parcel exists:
   that `Delivered` on a parcel in a return stage means `returned` (rule 6).
 - **Ids under `errors`, or missing from `result`:** don't mark them "checked and
   fine". NCM gave no status for them, for a reason the docs don't explain. Make
-  a per-order status call; if that answers 404 "Not found.", flag the parcel for
-  a person.
+  a per-order status call; if that answers 404 "Not found.", or keeps answering
+  500 (the API doc lists a 500 for a bad id, see
+  [api-contract.md](api-contract.md#errors)), flag the parcel for a person.
 - **Post-delivery return check.** A return can show only as `vendor_return`
   flipping after `Delivered` [observed]. Re-check recent deliveries' order detail
   for a while, and apply a hit as the mapping's "return after delivered" row.

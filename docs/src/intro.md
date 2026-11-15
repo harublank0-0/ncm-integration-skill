@@ -4,7 +4,7 @@ A single-file reference for integrating the Nepal Can Move courier API into an
 e-commerce or order-management project. It is generated from the Claude skill in
 [`skills/ncm-integration/`](../skills/ncm-integration/SKILL.md); edit the files
 under `skills/ncm-integration/references/` and `docs/src/intro.md`, then run
-`python3 scripts/build_reference.py`. Never edit this file by hand.
+`python3 scripts/build_reference.py`. Never edit `docs/ncm-integration-reference.md` by hand.
 
 ## Sources and labels
 

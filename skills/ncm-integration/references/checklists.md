@@ -21,7 +21,7 @@ Ask these before writing code. Each changes the data model or money.
 | D7 | **Inventory.** Which courier states, if any, move stock; does a courier status ever override a staff decision? | Stock bugs are expensive and silent. |
 | D8 | **Customer messages.** Which courier events text or email the customer, and never twice. | Duplicate and out-of-order webhooks happen. |
 | D9 | **Status mapping.** Fill in the template in webhooks-and-statuses.md for the project's real order states. | The project's states are its own. |
-| D10 | **Branches and rates.** Live NCM calls, a cached copy, or a stored table; refresh schedule; how the destination branch is chosen (from the address, a map pin, or staff); the shop's pickup branch, from the account's assigned branches. | Response shapes for the branch list and rates are undocumented; rates are quoted by branch name; no documented response carries the branch ids a redirect needs (one integration reads them from the branch list [observed]). Assigned pickup branches are documented, as names only. |
+| D10 | **Branches and rates.** Live NCM calls, a cached copy, or a stored table; refresh schedule; how the destination branch is chosen (from the address, a map pin, or staff); the shop's pickup branch, from the account's assigned branches (whether create's `fbranch` must be one of them is [unknown]). | Response shapes for the branch list and rates are undocumented; rates are quoted by branch name; no documented response carries the branch ids a redirect needs (one integration reads them from the branch list [observed]). Assigned pickup branches are documented, as names only. |
 | D11 | **Pickup requests.** How NCM is asked to collect: a `Pickup` ticket by hand or on a schedule, or arranged outside the system; which assigned branch each ticket names; how you avoid filing two while one is open. | NCM has no pickup endpoint. A `Pickup` ticket must name one of the account's assigned pickup branches. You learn a ticket closed only by polling its detail, and replying to a closed ticket reopens it. |
 
 ## Implementation order
@@ -83,7 +83,7 @@ Each step ends with a checkpoint. Don't start the next step until it passes.
    - *Checkpoint:* with webhooks switched off, a parcel still reaches its true status within one sweep window.
 9. **Pickup requests, comments, tickets, labels, redirect, return, exchange** (only those the user wants)
    - Pickup requests per D11. Claim the request locally (unique per account and slot) before filing the ticket at `POST /api/v2/vendor/ticket/create/new`, with `branch` set to an assigned branch exactly as NCM returns it.
-   - Ticket status by polling `GET /api/v1/tickets/<id>/detail`, so a ticket NCM closes releases the local guard. Reply only to open tickets unless reopening is intended.
+   - Ticket status by polling `GET /api/v1/tickets/<id>/detail`, so a ticket NCM closes releases the local guard. Which `ticket.status` value means open is [unknown], so treat a non-null `closed_on` as closed until NCM confirms ([Tickets](api-contract.md#tickets)). Reply only to open tickets unless reopening is intended.
    - Outbound comments through a job serialized **per account**, not globally.
      - Retry automatically only when the request clearly never reached NCM (connection refused, DNS failure).
      - After a timeout or 5xx, read the order's thread and look for the text before posting again: a comment post isn't idempotent.
@@ -138,7 +138,7 @@ Use synthetic ids, names and phones only.
 - [ ] Two accounts with the same NCM order id → each event updates only its own account's shipment.
 - [ ] An unknown or empty secret → rejected before anything is stored.
 - [ ] A vendor's own-account secret can't update another vendor's or the platform's orders.
-- [ ] Rotating one account's webhook secret → events to the old URL are accepted during the window and rejected after it; a revoked URL is rejected at once; other accounts are unaffected.
+- [ ] Rotating one account's webhook secret → events to the old URL are accepted during the window and rejected after it; events to a revoked URL change no order from the moment it is revoked (with a derived secret, intake can't see the revocation, so the worker drops them); other accounts are unaffected.
 - [ ] Switching a vendor between its own account and the platform account doesn't strand parcels already in transit.
 
 **Partial bulk failures**
@@ -148,7 +148,7 @@ Use synthetic ids, names and phones only.
 
 **Tickets, labels and webhook setup**
 - [ ] A `Pickup` ticket is sent to `/ticket/create/new` with an assigned `branch`; with no assigned branches, none is filed and staff are told.
-- [ ] A ticket closed on NCM's side releases the local pickup guard on the next poll.
+- [ ] A ticket closed on NCM's side (non-null `closed_on`) releases the local pickup guard on the next poll.
 - [ ] The webhook test endpoint answers `success: true` with `status_code: 400` → reported as a failed test.
 - [ ] A bulk label call that returns labels out of order, plus `not_found` ids → each label goes to its own order; the missing ones are flagged.
 

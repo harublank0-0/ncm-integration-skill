@@ -44,7 +44,7 @@ and the delivery rate, and a source of the branch ids a redirect needs.
 |---|---|
 | Host | Every example uses `https://demo.nepalcanmove.com` [doc]. The production host is **not in the documents** [unknown]. Ask NCM, and make the base URL configuration, never a constant. |
 | Auth | Header `Authorization: Token <api-token>` [doc]. "Every vendor is provided with an API Token Key"; a new or forgotten token comes from NCM's IT admin [doc]. |
-| Token scope | One token per vendor (merchant) account [doc]. The integration's code assumes order ids are per-account sequences and that one account's token can't read another's orders [observed]; in one production check the platform token answered for none of 168 ids created under shops' own tokens [reported]. The newer endpoints say "only the authenticated vendor's own orders" (labels) and "Only the vendor who owns the order" (return) [doc]; the older order reads say nothing either way. |
+| Token scope | One token per vendor (merchant) account [doc]. The integration's code assumes order ids are per-account sequences and that one account's token can't read another's orders [observed]; in one production check the platform token answered for none of 168 ids created under shops' own tokens [reported]. The label endpoints, new in v2, say "only the authenticated vendor's own orders", and the return endpoint (unchanged from the v1 doc) says "Only the vendor who owns the order" [doc]; the order reads say nothing either way. |
 | Content type | `Content-Type: application/json` on POST examples [doc]. |
 | Daily limits | "Order Creation : 1,000 per day"; "Order View (Detail, Comments, Status ): 20,000 per day" [doc]. Whether the limit is per token, when it resets, what the response is when exceeded, and whether bulk status, labels, customers, ratings and tickets count against the 20,000: [unknown]. The v1 doc's 200 and 5,000 are superseded [v1 doc]. |
 | Conduct | "Avoid duplication of order creation from both bulk file upload and api system." "No Spamming or running scripts to overload the server." [doc] |
@@ -194,12 +194,15 @@ Failure: `400 {"Error": {"phone": "Invalid Phone Number", "branch": "Invalid Bra
 
 **Finding a parcel after a timed-out create** [inferred]. The API still can't
 look a parcel up by `vref_id`, but the API doc's new endpoints allow a search:
-filter customers by phone (#22), read that customer's orders (#23) for one
-created around the time of the attempt, and read each candidate's label (#25),
-whose `description.vendor_orderid` appears to echo `vref_id`. None of this is
-documented for the purpose. Whether a new order shows up there at once, and
-whether `vendor_orderid` is `vref_id`, are [unknown]. Use it to help a person
-resolve an `unknown` create, never to justify an automatic retry.
+filter customers by phone (#22), take that customer's orders (#23) created
+around the time of the attempt, and read each candidate's label (#25), whose
+`description.vendor_orderid` appears to echo `vref_id`. Show the person only
+candidates whose label read succeeds: labels cover your own orders only, while
+the `orders` from #23 may include other vendors' (see [Customers and rating
+stats](#customers-and-rating-stats)). None of this is documented for the
+purpose. Whether a new order shows up there at once, and whether
+`vendor_orderid` is `vref_id`, are [unknown]. Use it to help a person resolve an
+`unknown` create, never to justify an automatic retry.
 
 ### Order detail
 
@@ -331,7 +334,7 @@ how a transfer is reported back, is [unknown].
 ```
 
 - `status` is a boolean, and the doc doesn't say which value means open. The example pairs `false` with `closed_on: null`, so `false` is probably open [inferred]. Read `closed_on` too, and confirm with NCM.
-- `message` holds `<br>` line breaks, and the doc's example ends with an "Actual Pickup count" line the vendor didn't write [doc]. Escape it before display.
+- `message` holds `<br>` line breaks, and the doc's example ends with an "Actual Pickup count" line the vendor didn't write [doc]. Turn the `<br>` into line breaks and escape the rest before display; never render it as HTML.
 - In the doc's example the braces put `responses` beside `ticket`, at the top level, while the indentation suggests it sits inside `ticket` [doc]. Read it from either place.
 - The shape of the "forbidden" answer is [unknown].
 

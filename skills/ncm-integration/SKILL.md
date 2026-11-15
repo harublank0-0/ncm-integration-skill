@@ -21,8 +21,9 @@ document is in [api-contract.md](references/api-contract.md#changes-from-the-v1-
 
 **Core rule:** keep NCM's documented contract exactly. Nothing in this package
 was checked against the live API, so anything marked [observed], [reported],
-[inferred], [unknown] or [v1 doc] must be confirmed with NCM or a demo token
-before you depend on it. Adapt everything else (states, stock, money, jobs) to
+[inferred] or [unknown] must be confirmed with NCM or a demo token before you
+depend on it. Anything marked [v1 doc] is superseded: use it to recognise old
+code, never build on it. Adapt everything else (states, stock, money, jobs) to
 the destination project, with the user deciding the business rules.
 
 ## When to use
