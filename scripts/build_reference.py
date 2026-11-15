@@ -13,6 +13,7 @@ PARTS = [
     ("webhooks-and-statuses.md", "Webhooks, statuses and status processing"),
     ("checklists.md", "Decisions, implementation and testing checklists"),
     ("production-lessons.md", "Lessons from a production integration"),
+    ("open-questions.md", "Open questions for NCM"),
 ]
 
 
@@ -20,7 +21,7 @@ def demote(text: str) -> str:
     """Push every heading one level down and point sibling links at the skill."""
     text = re.sub(r"^(#+) ", lambda m: "#" + m.group(1) + " ", text, flags=re.M)
     return re.sub(
-        r"\]\(((?:api-contract|webhooks-and-statuses|checklists|production-lessons)\.md)",
+        r"\]\(((?:api-contract|webhooks-and-statuses|checklists|production-lessons|open-questions)\.md)",
         r"](../skills/ncm-integration/references/\1",
         text,
     )

@@ -1,21 +1,42 @@
 # NCM API contract
 
 Nepal Can Move (NCM) is a courier in Nepal. This file is the public API contract
-as NCM's own documents state it, plus a short, clearly marked list of behaviour
-seen in one production integration but not in those documents.
+as NCM's own documents state it, what changed from the previous API document,
+and a short, clearly marked list of behaviour seen in one production integration
+but not in those documents.
 
 **Sources**
 
-- *NCM API Documentation* (PDF, file name dated `251222`, 18 pages). Called **API doc** below.
-- *NCM Webhook Integration Documentation*, version 1.1, "Last updated: September 2026", status "Beta (subject to changes)". Called **Webhook doc**. Its contract is in [webhooks-and-statuses.md](webhooks-and-statuses.md).
+- *NCM API Documentation*, version 2 (PDF file name `NCM API DOC V2.pdf`, 32 pages, created 2026-06-21; the document itself carries no version number or date). Called **API doc** below. "v2" is the document's version, not a path prefix: create, detail, status, comments and rates are still under `/api/v1/`.
+- *NCM Webhook Integration Documentation*, version 1.1, "Last updated: September 2026", status "Beta (subject to changes)". Called **Webhook doc**. Its contract is in [webhooks-and-statuses.md](webhooks-and-statuses.md). It is the current webhook document, unchanged since the previous edition of this skill; its version number is its own and unrelated to the API doc's.
+- *NCM API Documentation* (PDF, file name dated `251222`, 18 pages), the API document v2 replaces. Called **v1 doc**. The API doc restates every v1 endpoint with identical text, except the rows marked breaking in [Changes from the v1 doc](#changes-from-the-v1-doc).
 
 **Labels used**
 
-- **[doc]** stated by NCM's documents. Example values below are adapted from the documents' examples, with ids, names and dates changed.
+- **[doc]** stated by the current documents (API doc v2, webhook doc v1.1). Example values below are adapted from the documents' examples, with ids, names and dates changed.
+- **[v1 doc]** stated only in the superseded v1 doc and dropped from the API doc. Kept so you can recognise and migrate old code; don't build on it.
 - **[inferred]** follows from the documents without being stated in them.
 - **[observed]** seen in one production integration's code, not in NCM's documents. Code shows what the integration *handles*, not what NCM *sends*; confirm with NCM before you depend on it.
 - **[reported]** that integration's team reports it from production checks; not visible in its code.
-- **[unknown]** neither source settles it. Don't fill the gap with a guess.
+- **[unknown]** no source settles it, including everything the API doc leaves unspecified. Don't fill the gap with a guess.
+- **[NCM, date]** answered by NCM outside its documents (email, call, ticket); the answer is recorded in [open-questions.md](open-questions.md#answers).
+
+## Changes from the v1 doc
+
+| Area | v1 doc [v1 doc] | API doc v2 [doc] | What to do |
+|---|---|---|---|
+| Generic ticket path | `POST /api/v2/vendor/ticket/create` | `POST /api/v2/vendor/ticket/create/new` | **Breaking.** Move to the new path. Whether the old path still answers is [unknown]; don't rely on it. |
+| Pickup tickets | `{"ticket_type", "message"}` | adds `branch`, required when `ticket_type` is `Pickup`; it "must be one of the vendor's assigned pickup branches" | **Breaking.** Send a name from `GET /api/v2/vendor/assigned-branches` (#18). |
+| Daily limits | 200 creates, 5,000 reads | 1,000 creates, 20,000 reads (detail, comments, status) | Resize budgets. Scope, reset and over-limit response are still [unknown]. |
+| Webhook URL API | named only in the webhook doc, parameters unknown | documented: `{"webhook_url"}` (#17), plus a test endpoint (#19) | Register and test from code if you want to. |
+| Ticket detail | not documented; seen in production [observed] | documented (#20) | Parse the documented shape. |
+| Customer rating stats | not documented; seen in production [observed] | documented (#24) | Same shape that integration assumed. |
+| New endpoints | none | assigned branches (#18), ticket response (#21), customer list and detail (#22, #23), label data for one or many orders (#25, #26) | Use only what the project needs. |
+| Everything else | | identical text: auth, host, branch list, delivery rate, create, detail, comments, status history, bulk status, comment create, COD ticket, close ticket, staff, return, exchange, redirect, GET errors | No migration. **Don't rewrite `/api/v1/` paths to `/api/v2/`**: the API doc keeps them. |
+
+Still missing from both: a cancel or hold endpoint, a webhook signature,
+idempotency keys, a lookup by `vref_id`, the response shapes of the branch list
+and the delivery rate, and a source of the branch ids a redirect needs.
 
 ## Basics
 
@@ -23,32 +44,44 @@ seen in one production integration but not in those documents.
 |---|---|
 | Host | Every example uses `https://demo.nepalcanmove.com` [doc]. The production host is **not in the documents** [unknown]. Ask NCM, and make the base URL configuration, never a constant. |
 | Auth | Header `Authorization: Token <api-token>` [doc]. "Every vendor is provided with an API Token Key"; a new or forgotten token comes from NCM's IT admin [doc]. |
-| Token scope | One token per vendor (merchant) account [doc]. The integration's code assumes order ids are per-account sequences and that one account's token can't read another's orders [observed]; in one production check the platform token answered for none of 168 ids created under shops' own tokens [reported]. NCM's documents say neither. |
+| Token scope | One token per vendor (merchant) account [doc]. The integration's code assumes order ids are per-account sequences and that one account's token can't read another's orders [observed]; in one production check the platform token answered for none of 168 ids created under shops' own tokens [reported]. The newer endpoints say "only the authenticated vendor's own orders" (labels) and "Only the vendor who owns the order" (return) [doc]; the older order reads say nothing either way. |
 | Content type | `Content-Type: application/json` on POST examples [doc]. |
-| Daily limits | "Order Creation : 200 per day"; "Order View (Detail, Comments, Status): 5000 per day" [doc]. Whether the limit is per token, when it resets, and what the response is when exceeded: [unknown]. |
+| Daily limits | "Order Creation : 1,000 per day"; "Order View (Detail, Comments, Status ): 20,000 per day" [doc]. Whether the limit is per token, when it resets, what the response is when exceeded, and whether bulk status, labels, customers, ratings and tickets count against the 20,000: [unknown]. The v1 doc's 200 and 5,000 are superseded [v1 doc]. |
 | Conduct | "Avoid duplication of order creation from both bulk file upload and api system." "No Spamming or running scripts to overload the server." [doc] |
-| Versioning | Paths mix `/api/v1/` and `/api/v2/` [doc]. No deprecation policy is documented [unknown]. |
-| Pagination | Documented only for the staff list (`count`, `next`, `previous`, `results`) [doc]. |
+| Versioning | Paths mix `/api/v1/`, `/api/v1/vendor/`, `/api/v2/` and `/api/v2/vendor/` [doc]; the version belongs to each path, not to the document. Ticket replies are under `/api/v1/vendor/tickets/` (plural) while create and close are under `/api/v2/vendor/ticket/` (singular). No deprecation policy is documented, and the v1 doc's ticket path vanished without a note [unknown]. |
+| Pagination | `count`, `next`, `previous`, `results` for the staff list (default 20 per page) and the customer list (default 25, maximum 100) [doc]. |
+| Response envelope | The webhook and ticket-detail/response endpoints (#17, #19, #20, #21) put `"success": true/false` in the body [doc]. Treat `success: false` as a failure even inside an HTTP 200. The webhook test (#19) answers 200 in all four documented outcomes, and its `success: true` only means NCM reached your server: that test passed only if `status_code` is 2xx. |
 | Sandbox | The documents are written against the demo host. Whether the demo shares data or tokens with production: [unknown]. |
 
 ## Errors
 
 | Situation | Response [doc] |
 |---|---|
-| GET without a token | `401 {"detail": "Authentication credentials were not provided."}` |
+| GET without a token | `401 {"detail": "Authentication credentials were not provided."}` (also shown for the bulk label POST) |
 | GET without `id` | `400 {"detail": "ID parameter missing"}` |
-| GET with an unknown or invalid id | `404 {"detail": "Not found."}` |
-| Server error | `500 {"detail": "Server Error"}` |
+| GET with an unknown or invalid id | `404 {"detail": "Not found."}`. The doc lists `500 {"detail": "Server Error"}` under the same heading, so a 500 from an order read may mean a bad id rather than a passing fault. Don't retry it blindly. |
 | Order create, bad fields | `400 {"Error": {"<field>": "<message>", ...}}` |
 | Comment create, bad fields | `400 {"Error": {"Order Id": "...", "Comments": "..."}}` |
 | Return, missing id | `400 {"message": "Order ID is required"}` |
 | Return, unknown order | `404 {"message": "Order not found"}` |
+| Webhook URL not `http://` or `https://` | `400 {"success": false, "message": "Please enter a valid URL for Order Status Webhook (must start with http:// or https://)"}` |
+| Webhook test, timeout or no connection | `200 {"success": false, "error": "Request timed out. ..."}` or `"Connection error. ..."` |
+| Customer detail, unknown id | `404 {"detail": "Customer not found"}` or `404 {"detail": "Not found"}` |
+| Rating stats, no phone; unknown phone | `400 {"detail": "phone parameter is required"}`; `404 {"detail": "No customer found with this phone number"}` |
+| Label, unknown order | `404 {"detail": "Order not found"}`. What another vendor's id returns isn't stated [unknown]; the bulk endpoint puts those in `not_found`. |
+| Bulk labels, empty or missing `ids` | `400 {"detail": "\"ids\" must be a non-empty array"}` |
 
-Error bodies use three shapes: `detail`, `Error` (an object keyed by field) and `message`. Parse all three. The response to a rate limit (for example 429) is [unknown]. Expect HTML error pages from proxies as well, and never show a raw body to an end user.
+Error bodies use four shapes: `detail`, `Error` (an object keyed by field),
+`message`, and `success: false` with `message` or `error`. Parse all of them.
+Not documented [unknown]: the response to a rate limit (for example 429), the
+"forbidden" answer from ticket detail, and errors from ticket create, COD
+ticket, close, staff, exchange, redirect, assigned branches and ticket
+response. Expect HTML error pages from proxies as well, and never show a raw
+body to an end user.
 
 ## Endpoint catalog
 
-Every endpoint takes `Authorization: Token <api-token>` unless the row says otherwise.
+Every endpoint takes `Authorization: Token <api-token>` unless the row says otherwise. Numbers are this file's own, kept stable across editions.
 
 | # | Purpose | Method and path | Request | Success response [doc] |
 |---|---|---|---|---|
@@ -61,35 +94,52 @@ Every endpoint takes `Authorization: Token <api-token>` unless the row says othe
 | 7 | Create an order | `POST /api/v1/order/create` | JSON, see [Create an order](#create-an-order) | `200 {"Message": "Order Successfully Created", "orderid": <int>}` |
 | 8 | Add a comment to an order | `POST /api/v1/comment` | `{"orderid", "comments"}`, both required | `200 {"message": "Comment successfully created"}` |
 | 9 | Current status of many orders | `POST /api/v1/orders/statuses` | `{"orders": [<int>, ...]}` | `200 {"result": {"<id>": "<status>"}, "errors": [<id>, ...]}` |
-| 10 | General support ticket | `POST /api/v2/vendor/ticket/create` | `{"ticket_type", "message"}`; `message` max 500 chars | `201 {"message": "Ticket created", "ticket": <int>}` |
+| 10 | Support ticket, including pickup requests | `POST /api/v2/vendor/ticket/create/new` | `{"ticket_type", "message", "branch"?}`; `message` max 500 chars; `branch` required for `Pickup`. See [Tickets](#tickets). | `201 {"message": "Ticket created", "ticket": <int>}`. The v1 doc's path `/api/v2/vendor/ticket/create` is gone [v1 doc]. |
 | 11 | COD transfer request ticket | `POST /api/v2/vendor/ticket/cod/create` | `{"bankName", "bankAccountName", "bankAccountNumber"}`, all required | `201 {"message": "COD ticket created", "ticket": <int>}` |
 | 12 | Close own ticket | `POST /api/v2/vendor/ticket/close/<ticket_id>` | ticket id in the path (`pk`) | `200 {"message": "Ticket closed", "ticket": <int>}` |
 | 13 | Active staff list | `GET /api/v2/vendor/staffs?q=&page=&page_size=` (`limit` is an alias of `page_size`) | all optional; `page` default 1, `page_size` default 20 | `{"count", "next", "previous", "results": [{"id", "name", "email", "phone"}]}` |
 | 14 | Mark an order for return | `POST /api/v2/vendor/order/return` | `{"pk": <order id>, "comment"?}` | `200 {"message": "Order marked for return successfully", "order": <int>, "vendor_return": true}` |
 | 15 | Exchange (replacement plus pickup of the old item) | `POST /api/v2/vendor/order/exchange-create` | `{"pk": <original order id>}` | `200 {"message": "Exchange orders created", "cust_order": <int>, "ven_order": <int>}` |
 | 16 | Redirect to another address or customer | `POST /api/v2/vendor/order/redirect` | see [Redirect](#redirect) | `200 {"message", "order", "cod_charge", "delivery_charge", "changelogs"}` |
-| 17 | Set or remove the webhook URL | `POST /api/v2/vendor/webhook` | **not documented**: the webhook doc names it and says "see the NCM API documentation", but the API doc doesn't list it [unknown] | [unknown] |
+| 17 | Set or remove the order status webhook URL | `POST /api/v2/vendor/webhook` | `{"webhook_url": "<http(s) URL>"}`; `""` removes it. See [Webhook registration and test](#webhook-registration-and-test). | `201 {"success": true, "message": "Webhook URLs created successfully!"}` the first time, then `200 {"success": true, "message": "Webhook URLs updated successfully!"}` |
+| 18 | Pickup branches assigned to the account | `GET /api/v2/vendor/assigned-branches` | none | `200 ["<BRANCH NAME>", ...]`: names only; `[]` when none are assigned |
+| 19 | Send a test webhook | `POST /api/v2/vendor/webhook/test` | `{"webhook_url": "<url>"}` | `200` in every documented outcome, failures included; read `success` and `status_code` |
+| 20 | One ticket with its responses | `GET /api/v1/tickets/<ticket_id>/detail` | ticket id in the path; a vendor sees only its own tickets | `200 {"success": true, "ticket": {...}, "responses": [...]}` |
+| 21 | Reply to a ticket | `POST /api/v1/vendor/tickets/<ticket_id>/response` | `{"message"}` | `201 {"success": true, "ticket_id": <int>, "response": {"id", "message", "added_on", "vendor_display", "added_by": {"id", "name"}}}`. **Reopens a closed ticket.** |
+| 22 | The account's customers | `GET /api/v2/vendor/customers?page=&page_size=&name=&phone=` | all optional; `page_size` default 25, max 100; `name` contains, `phone` starts with | `{"count", "next", "previous", "results": [{"id", "name", "phone", "address"}]}` |
+| 23 | One customer with order history | `GET /api/v2/vendor/customers/<customer_id>/detail` | customer id in the path | `{"id", "name", "phone", "email", "orders": [{"orderid", "created_date", "cod_charge", "delivery_charge", "last_delivery_status"}]}` |
+| 24 | A phone's delivery record across NCM | `GET /api/v2/vendor/ratings?phone=<phone>` | `phone` required | `{"phone", "total_orders", "total_delivered", "total_returned"}` |
+| 25 | Label data for one order | `GET /api/v2/vendor/order/label/<order_id>` | order id in the path; own orders only | a label object, see [Label data](#label-data) |
+| 26 | Label data for many orders | `POST /api/v2/vendor/order/label/` (trailing slash as documented) | `{"ids": [<int>, ...]}`, non-empty | `200 {"labels": [<label>, ...], "not_found": [<id>, ...]}` |
 
-Not offered by the documents: cancelling an order, creating an order on hold, labels or AWB printing, a pickup-request endpoint, a COD remittance or settlement statement, idempotency keys.
+Not offered by the documents: cancelling an order, creating an order on hold, a
+dedicated pickup-request endpoint (a `Pickup` ticket stands in), a COD
+remittance or settlement statement, idempotency keys, a lookup by `vref_id`, a
+printable label or AWB file (#25 and #26 return label **data**), reading back
+the registered webhook URL.
 
 ### Delivery types
 
-The rate endpoint and the create endpoint name the four services differently.
-The rate table describes each `type` as Door2Door, Branch2Door, Door2Branch or
-Branch2Branch, and the create endpoint uses those four words as its
-`delivery_type` values. The doc never puts the two side by side, so the pairing
-below is [inferred]; the names and charges in each row are [doc].
+The rate endpoint and the create endpoint name the four services differently,
+and the label endpoints add a third, coarser vocabulary. The rate table
+describes each `type` with the words create takes as `delivery_type`
+(`Pickup/Collect` is "Door2Door (NCM pickup & delivery)", `D2B` is "Door2Branch
+(...)"), so the pairing is all but stated. The doc never says outright to send
+one for the other, so the pairing below is marked [inferred]; the names and
+charges in each row are [doc]. The label column is [doc]:
+"delivery_type returns "Office" for D2B/B2B orders and "Home" for all others."
 
-| Service | Rate `type` | Create `delivery_type` | Charge, as the rate table words it |
-|---|---|---|---|
-| NCM picks up from the sender and delivers to the door | `Pickup/Collect` | `Door2Door` (the default) | full base charge |
-| Sender drops at a branch, NCM delivers to the door | `Send` | `Branch2Door` | full base charge |
-| NCM picks up, customer collects at a branch | `D2B` | `Door2Branch` | base charge − 50 |
-| Sender drops at a branch, customer collects at a branch | `B2B` | `Branch2Branch` | base charge − 50 |
+| Service | Rate `type` | Create `delivery_type` | Label `delivery_type` | Charge, as the rate table words it |
+|---|---|---|---|---|
+| NCM picks up from the sender and delivers to the door | `Pickup/Collect` | `Door2Door` (the default) | `Home` | full base charge |
+| Sender drops at a branch, NCM delivers to the door | `Send` | `Branch2Door` | `Home` | full base charge |
+| NCM picks up, customer collects at a branch | `D2B` | `Door2Branch` | `Office` | base charge − 50 |
+| Sender drops at a branch, customer collects at a branch | `B2B` | `Branch2Branch` | `Office` | base charge − 50 |
 
 "Base charge − 50" is the doc's wording; it gives no unit or base. Read the
 charge from the rate endpoint; never compute it yourself. Keep one mapping table
-in code, and don't send a rate `type` value to the create endpoint.
+in code. Don't send a rate `type` to the create endpoint, and never send a label
+value (`Home`, `Office`) to either.
 
 ### Create an order
 
@@ -110,7 +160,12 @@ in code, and don't send a rate `type` value to the create endpoint.
 | `delivery_type` | no | `Door2Door`, `Branch2Door`, `Branch2Branch`, `Door2Branch`; default `Door2Door` |
 | `weight` | no | kg; default 1 |
 
-The example sends every value as a JSON string, numbers included [doc]. Not documented [unknown]: field length limits, accepted phone formats, whether `cod_charge` may be `"0"` for a prepaid order, whether `vref_id` must be unique or is checked for duplicates, how `fbranch` relates to the account's own pickup branch.
+The example sends every value as a JSON string, numbers included [doc]. Not
+documented [unknown]: field length limits, accepted phone formats, whether
+`cod_charge` may be `"0"` for a prepaid order, whether `vref_id` must be unique
+or is checked for duplicates, whether `fbranch` must be one of the account's
+assigned pickup branches (#18), and how to mark a parcel fragile or valuable
+(the label reports a `handling` value, but create has no field for it).
 
 Synthetic request:
 
@@ -136,6 +191,15 @@ Success: `200 {"Message": "Order Successfully Created", "orderid": 1001}`. Note 
 Failure: `400 {"Error": {"phone": "Invalid Phone Number", "branch": "Invalid Branch"}}`. The documented messages are `"Invalid COD Amount"`, `"Invalid Phone Number"`, `"Invalid Branch"`, `"Invalid Name"`, `"Invalid Address"`.
 
 **No idempotency.** Nothing in the contract stops a retried create making a second parcel [doc: no such mechanism is described]. See [checklists.md](checklists.md) for the claim-before-call pattern.
+
+**Finding a parcel after a timed-out create** [inferred]. The API still can't
+look a parcel up by `vref_id`, but the API doc's new endpoints allow a search:
+filter customers by phone (#22), read that customer's orders (#23) for one
+created around the time of the attempt, and read each candidate's label (#25),
+whose `description.vendor_orderid` appears to echo `vref_id`. None of this is
+documented for the purpose. Whether a new order shows up there at once, and
+whether `vendor_orderid` is `vref_id`, are [unknown]. Use it to help a person
+resolve an `unknown` create, never to justify an automatic retry.
 
 ### Order detail
 
@@ -185,7 +249,7 @@ Failure: `400 {"Error": {"phone": "Invalid Phone Number", "branch": "Invalid Bra
   - [observed] One integration found most of its long-stuck parcels listed here, while control parcels on the same token answered normally.
   - [reported] Ids created under another account's token went unanswered in one production check, so group ids by the token that created them.
 - Maximum batch size: [unknown]. One integration uses 100.
-- Whether a bulk call counts as one read or one per id against the 5,000 daily reads: [unknown].
+- Whether a bulk call counts as one read or one per id against the 20,000 daily reads: [unknown].
 
 ### Comments
 
@@ -212,11 +276,72 @@ have stored the comment. Before posting again, read the thread
 
 ### Tickets
 
-- `ticket_type` is one of `General`, `Order Processing`, `Return`, `Pickup` [doc].
-- `message` is at most 500 characters [doc].
-- A COD transfer ticket carries bank details: treat them as sensitive data, never log them, and confirm with the business who may file one.
-- [observed] One integration also reads a ticket's detail with `GET /api/v1/tickets/<ticket_id>/detail`, which is not documented. Tickets closed on NCM's side are only seen that way.
-- [observed] A "Pickup" ticket is how one integration asks NCM to collect parcels: a message giving the number of packets, the nearest branch, the address and a phone. There is no dedicated pickup endpoint [doc].
+**Create** `POST /api/v2/vendor/ticket/create/new` [doc]
+
+| Field | Required | Meaning |
+|---|---|---|
+| `ticket_type` | yes | `General`, `Order Processing`, `Return` or `Pickup` |
+| `message` | yes | at most 500 characters |
+| `branch` | only for `Pickup` | "must be one of the vendor's assigned pickup branches" (#18) |
+
+Synthetic pickup request, in the doc example's message format:
+
+```json
+{"ticket_type": "Pickup", "message": "98XXXXXXXX, No. of Packets: 5, Address: Example Tole", "branch": "<ASSIGNED_BRANCH_NAME>"}
+```
+
+→ `201 {"message": "Ticket created", "ticket": 2001}` [doc].
+
+- The doc's example sends `"branch": "Tinkune"`, while #18 returns names in capitals (`"KATHMANDU"`) [doc]. Whether the match is case-sensitive is [unknown]; send the name exactly as #18 returns it.
+- The error for a missing or unassigned `branch` is [unknown].
+- There is still no dedicated pickup endpoint. A `Pickup` ticket is how you ask NCM to collect [inferred from the ticket types and the example].
+- Whether a ticket type is meant for cancelling an order is [unknown]; none is named for it.
+
+**COD transfer** `POST /api/v2/vendor/ticket/cod/create` with `bankName`,
+`bankAccountName` and `bankAccountNumber` → `201 {"message": "COD ticket
+created", "ticket": <int>}` [doc]. The bank details are sensitive: never log
+them, and confirm with the business who may file one. What NCM does next, and
+how a transfer is reported back, is [unknown].
+
+**Close** `POST /api/v2/vendor/ticket/close/<ticket_id>` → `200 {"message": "Ticket closed", "ticket": <int>}`, for your own tickets [doc].
+
+**Detail** `GET /api/v1/tickets/<ticket_id>/detail` [doc]. A vendor sees only its own tickets; "other roles are forbidden".
+
+```json
+{
+  "success": true,
+  "ticket": {
+    "id": 2001,
+    "ticket_type": "Pickup",
+    "message": "98XXXXXXXX<br>No. of Packets: 5<br>Address: Example Tole<br>Actual Pickup count : 4",
+    "added_on": "2026-01-05T11:28:00+05:45",
+    "status": false,
+    "comment": "",
+    "attachment": null,
+    "branch": "<ASSIGNED_BRANCH_NAME>",
+    "closed_on": null,
+    "vendor": {"id": 501, "name": "Example Vendor", "location": "27.70,85.30"},
+    "assigned_to": {"id": 43, "name": "Example Logistics"},
+    "closed_by": {"id": null, "name": null}
+  },
+  "responses": [
+    {"id": 3001, "message": "Please pick up tomorrow morning.", "added_on": "2026-01-05T12:10:00+05:45", "vendor_display": true, "added_by": {"id": 501, "name": "Example Vendor"}}
+  ]
+}
+```
+
+- `status` is a boolean, and the doc doesn't say which value means open. The example pairs `false` with `closed_on: null`, so `false` is probably open [inferred]. Read `closed_on` too, and confirm with NCM.
+- `message` holds `<br>` line breaks, and the doc's example ends with an "Actual Pickup count" line the vendor didn't write [doc]. Escape it before display.
+- In the doc's example the braces put `responses` beside `ticket`, at the top level, while the indentation suggests it sits inside `ticket` [doc]. Read it from either place.
+- The shape of the "forbidden" answer is [unknown].
+
+**Respond** `POST /api/v1/vendor/tickets/<ticket_id>/response` with
+`{"message": "..."}` → `201 {"success": true, "ticket_id": 2001, "response":
+{"id", "message", "added_on", "vendor_display": true, "added_by": {"id",
+"name"}}}` [doc].
+
+- **Replying to a closed ticket reopens it** [doc]. Read the ticket first unless reopening is what you want.
+- A retried reply probably posts twice, since nothing makes it idempotent [inferred]. A length limit is [unknown].
 
 ### Return, exchange, redirect
 
@@ -237,41 +362,108 @@ a post-delivery check reads to detect a return NCM started.
 | `pk` | yes | NCM order id |
 | `name`, `phone`, `address` | yes | the new customer |
 | `vendorOrderid` | no | your reference |
-| `destination` | no | new destination **branch id** (an integer, unlike create, which takes branch names) [doc]. The only documented source of branch ids is this field's description; see endpoint #1 for where one integration gets them. |
+| `destination` | no | new destination **branch id** (an integer, unlike create, which takes branch names) [doc]. No documented endpoint returns branch ids: #18 gives names, and labels (#25) give a name and a `code` such as `TINK1` [doc]. See endpoint #1 for where one integration gets ids. |
 | `cod_charge` | no | new COD amount (decimal) |
 
 The response carries the new `cod_charge` and `delivery_charge` as strings, and `changelogs` as free text. A changed branch adds an `RDRT-DiFF-BRNCH` charge; the same branch adds a `REDIRECT` charge. A phone NCM doesn't know creates a customer record [doc]. Which orders may be redirected is [unknown] in the doc. [observed] One integration reads an undocumented `GET /api/v2/vendor/order/redirectable` list.
 
+### Webhook registration and test
+
+**Register** `POST /api/v2/vendor/webhook` [doc]:
+
+```json
+{"webhook_url": "https://shop.example/webhooks/ncm/acct_1?token=<SECRET>"}
+```
+
+- `201 {"success": true, "message": "Webhook URLs created successfully!"}` the first time, `200 {"success": true, "message": "Webhook URLs updated successfully!"}` after that.
+- `{"webhook_url": ""}` removes the stored URL.
+- A URL that doesn't start with `http://` or `https://` gets a `400` with `success: false`.
+- It sets the vendor portal's "Order Delivery Webhook URL", which receives every status event: the webhook doc follows the portal steps for that field with "You can also set or remove the URL through the API with POST /api/v2/vendor/webhook" [doc].
+- [unknown] The doc says the endpoint manages "webhook URLs" for "order status and comment events", but its only parameter is `webhook_url`, described as the order status URL. How to set a comment webhook URL through the API, and what a comment event looks like, aren't documented.
+- [unknown] No endpoint reads the stored URL back, and whether a change takes effect at once isn't said.
+
+**Test** `POST /api/v2/vendor/webhook/test` with `{"webhook_url": "<url>"}` [doc]. NCM posts this test payload to that URL and reports what happened:
+
+```json
+{"event": "order.status.changed", "order_id": "TEST-123456", "status": "In Transit", "timestamp": "2026-01-02T12:00:00+05:45", "test": true}
+```
+
+| What happened | NCM's answer (HTTP 200 in every documented case) |
+|---|---|
+| your server answered 2xx | `{"success": true, "status_code": 200, "response": "OK"}` |
+| your server answered an error | `{"success": true, "status_code": 400, "response": "Bad Request", "headers": {"Content-Type": "text/plain"}}` |
+| no answer within 10 seconds | `{"success": false, "error": "Request timed out. The webhook URL did not respond within 10 seconds."}` |
+| no connection | `{"success": false, "error": "Connection error. Could not connect to the webhook URL. Details: ..."}` |
+
+**`success: true` only means NCM got an HTTP answer.** The test passed only if
+`status_code` is 2xx.
+
+- Pass the full URL, secret included. The test reaches your receiver like a real event; authenticate it and record it as a test (see [webhooks-and-statuses.md](webhooks-and-statuses.md#payloads-doc)).
+- [unknown] whether the test carries the same headers as real webhooks (`User-Agent: NCM-Webhook/1.0`), whether the URL must be the registered one (the doc lets you pass any URL), and the endpoint's own errors, such as a missing token or `webhook_url`.
+
+### Customers and rating stats
+
+These endpoints return personal data. Call them only for a purpose the business
+has agreed, and never log names, phones, emails or addresses.
+
+- **List** `GET /api/v2/vendor/customers` [doc]: customers "either created by you or who have received at least one of your orders". Filters `name` (contains) and `phone` (starts with); `page` default 1, `page_size` default 25, maximum 100. Results are `{"id", "name", "phone", "address"}`; `address` may be `""`. What happens above 100 per page is [unknown].
+- **Detail** `GET /api/v2/vendor/customers/<customer_id>/detail` [doc]: `{"id", "name", "phone", "email", "orders": [...]}`, each order `{"orderid", "created_date", "cod_charge", "delivery_charge", "last_delivery_status"}`. A 404 carries either `"Customer not found"` or `"Not found"`.
+  - [unknown] The doc calls `orders` the "complete order history". Whether it holds only your account's orders, or the customer's orders with other vendors too, isn't said. Don't show it to staff or vendors until you know.
+- **Rating stats** `GET /api/v2/vendor/ratings?phone=<phone>` [doc]: `{"phone", "total_orders", "total_delivered", "total_returned"}` "across the entire NCM system". `400` without `phone`. A `404 {"detail": "No customer found with this phone number"}` means no history, not a failure.
+  - It describes a customer's orders with other vendors. Check with the business, and with NCM's terms, before using it to refuse or flag customers.
+  - Accepted phone formats are [unknown]; one integration sends 10 digits [observed].
+
+### Label data
+
+`GET /api/v2/vendor/order/label/1001` returns what a delivery label needs, for one of your own orders [doc]:
+
+```json
+{
+  "orderid": 1001,
+  "delivery_type": "Home",
+  "cod_charge": "1500.00",
+  "from_branch": {"name": "<ORIGIN_BRANCH_NAME>", "code": "<BRANCH_CODE>", "district": "<DISTRICT>"},
+  "to_branch": {"name": "<DESTINATION_BRANCH_NAME>", "code": "<BRANCH_CODE>", "district": "<DISTRICT>"},
+  "from": {"name": "Example Vendor", "phone": "98XXXXXXXX", "phone2": ""},
+  "receiver": {"name": "Test Customer", "phone": "98XXXXXXXX", "phone2": "", "address": "Example Tole, Ward 1"},
+  "description": {"description": "1 x Example item", "delivery_instruction": "Call before delivery", "handling": "Non-Fragile", "vendor_orderid": "SHOP-ORDER-0001"}
+}
+```
+
+`POST /api/v2/vendor/order/label/` with `{"ids": [1001, 1002, 9999]}` → [doc]
+
+```json
+{"labels": [{"orderid": 1002, "delivery_type": "Office", "cod_charge": "2200.00"}, {"orderid": 1001, "delivery_type": "Home", "cod_charge": "1500.00"}], "not_found": [9999]}
+```
+
+(Labels shortened here; each is the full object above.)
+
+- `delivery_type` is `Office` for D2B and B2B orders and `Home` for the rest ([Delivery types](#delivery-types)).
+- `from` holds the vendor for vendor orders, or the sending customer otherwise. Which orders aren't vendor orders is [unknown].
+- `description` fields are `null` when the order has no description. Whether the whole `description` object can be `null` is [unknown]; handle both.
+- `handling` is `Fragile`, `Fragile and Valuable`, `Valuable` or `Non-Fragile`.
+- `labels` can come back in any order: match on `orderid`. Ids that don't exist **and ids that belong to another vendor** both land in `not_found`, indistinguishably [doc].
+- NCM recommends 100 ids or fewer per request; no hard limit is stated [doc].
+- Keep the trailing slash on the POST path as documented.
+- [inferred] `description.description`, `delivery_instruction` and `vendor_orderid` echo create's `package`, `instruction` and `vref_id`.
+- [unknown] what a barcode or QR code on the label should encode, whether NCM offers a printable file, and whether label reads count against the 20,000 daily reads.
+
 ## Undocumented endpoints seen in production
 
-[observed] One production integration calls these. They are not in the documents. Treat them as unstable, and confirm with NCM before use.
+[observed] One production integration calls this. It is not in the documents. Treat it as unstable, and confirm with NCM before use.
 
 | Path | What the integration uses it for | Response shape it assumes |
 |---|---|---|
 | `GET /api/v2/vendor/order/redirectable` | which of the account's orders may be redirected now | paginated `{count, next, previous, results: [{orderid, branch, last_delivery_status}]}`, following `next` |
-| `GET /api/v2/vendor/ratings?phone=<10 digits>` | a phone number's delivery history across NCM, for fraud checks before confirming an order | `{phone, total_orders, total_delivered, total_returned}`; a 404 means no history. This is personal data about a customer's other purchases: check with the business and NCM whether you may use it, and never log the phone. |
-| `GET /api/v1/tickets/<ticket_id>/detail` | a ticket's status | a status under `status`, `ticket_status` or similar; the parser is deliberately loose |
+
+Two endpoints that integration called without documentation are now in the API
+doc: rating stats (#24), whose documented shape matches what it assumed, and
+ticket detail (#20), where it parsed a status loosely from `status`,
+`ticket_status` or similar, and the doc puts a boolean at `ticket.status`.
 
 The same integration retries an order-detail read when the error text matches "expected available in N seconds", which is Django REST framework's throttling wording [observed]. Whether NCM sends it, and with which HTTP status, is [unknown].
 
 ## What to ask NCM before go-live
 
-1. The production base URL, and whether demo tokens and data are separate from production.
-2. Rate-limit scope (per token?), reset time, and the response when it's exceeded.
-3. Response shapes for `/api/v2/branches` and `/api/v1/shipping-rate`.
-4. How to cancel an order, or hold one, after create. Neither is documented.
-5. Maximum batch size for `/api/v1/orders/statuses`, and why an id lands in `errors`.
-6. What `payment_status` values exist, and how COD remittance to the vendor is reported.
-7. Whether `vref_id` is checked for duplicates.
-8. Parameters for `POST /api/v2/vendor/webhook`.
-9. The full list of order statuses and webhook events, including `comment_added`, `returned_to_warehouse`, and the maximum ids in one bulk event.
-10. Whether undocumented fields (`vendor_return`, `delivered_date`, `active`, a tracking id) and endpoints (`/order/redirectable`, `/vendor/ratings`, `/tickets/<id>/detail`) are supported for vendors.
-11. Whether a parcel can still be collected after you decide to cancel it, and how to stop that.
-12. Whether webhooks for one parcel arrive in order.
-13. Which characters names and addresses may contain (Devanagari?), and the length limits per field.
-14. Whether a bulk status call counts once or per id against the daily reads.
-15. How to rotate a webhook secret without losing events.
-16. Whether `cod_charge: "0"` is accepted for a prepaid order, and what the rider then collects.
-17. Where branch ids come from, since the branch list's shape is undocumented and the redirect's `destination` needs one.
-18. Whether `Delivery Attempted`, `Out for Delivery` and `Dispatched to <BRANCH>` are real status strings, and what `returned_to_warehouse` means.
-19. Whether posting a comment is idempotent in any way, since no comment id is returned.
+The open questions, with their status and NCM's answers as they arrive, are
+tracked in [open-questions.md](open-questions.md). Ask them before go-live.
