@@ -14,9 +14,12 @@ under `skills/ncm-integration/references/` and `docs/src/intro.md`, then run
 | NCM webhook doc | *NCM Webhook Integration Documentation* v1.1, "Last updated: September 2026", "Beta (subject to changes)". Current, and unchanged since this reference's previous edition |
 | NCM API doc v1 | *NCM API Documentation* PDF, file name dated `251222`, 18 pages. Superseded by v2 |
 | A production integration | One multi-vendor platform's NCM integration, read in late 2026 and built against the v1 API doc: its code, and its team's production checks |
+| Live read-only calls | 23 read-only calls to NCM's production API (`https://portal.nepalcanmove.com`) on 2026-11-16 with one vendor's production token. Only response shapes were recorded; nothing was created or changed |
 
-None of the PDFs is included here; ask NCM for current copies. Nothing in this
-reference was checked against NCM's live API.
+None of the PDFs is included here; ask NCM for current copies. Only the
+read-only calls above were checked against NCM's live API; everything they
+didn't cover (create, comments posted, tickets, returns, redirects, webhooks,
+limits) is untested.
 
 | Label | Meaning |
 |---|---|
@@ -24,6 +27,7 @@ reference was checked against NCM's live API.
 | **[v1 doc]** | Stated only in the superseded v1 API doc. Kept to help migrate old code |
 | **[inferred]** | Follows from the documents without being stated |
 | **[observed]** | Seen in the production integration's code. Code shows what it *handles*, not what NCM *sends* |
+| **[observed 2026-11-16]** | Returned by NCM's production API to a read-only call on that date. What NCM *sent* to one account that day; not confirmed by NCM, and never [doc] |
 | **[reported]** | Reported by that integration's team from production checks |
 | **[recommended]** | A design rule for your project |
 | **[unknown]** | Not settled by any source, including what API doc v2 leaves unspecified |
@@ -46,9 +50,9 @@ unchanged, and its path with it.
 
 | Capability | NCM endpoint | Documented | Used by the production integration |
 |---|---|---|---|
-| Branch list | `GET /api/v2/branches` | yes (shape not given) | yes |
+| Branch list | `GET /api/v2/branches` | yes (shape not given; observed live) | yes |
 | Assigned pickup branches | `GET /api/v2/vendor/assigned-branches` | yes, new in v2 | no |
-| Delivery charge | `GET /api/v1/shipping-rate` | yes (shape not given) | yes, always `type=Pickup/Collect` |
+| Delivery charge | `GET /api/v1/shipping-rate` | yes (shape not given; observed live) | yes, always `type=Pickup/Collect` |
 | Create order | `POST /api/v1/order/create` | yes | yes, one at a time, on confirmation |
 | Order detail | `GET /api/v1/order?id=` | yes | yes |
 | Order comments; last 25 comments | `GET /api/v1/order/comment?id=`; `GET /api/v1/order/getbulkcomments` | yes | yes |
@@ -103,15 +107,15 @@ sequenceDiagram
 |---|---|---|
 | 1 | Webhook URL API | The endpoint is described as managing "webhook URLs" for "order status and comment events", and answers "Webhook URLs updated", but its only parameter is `webhook_url`, the order status URL |
 | 2 | Delivery-type names | Three vocabularies: the rate endpoint takes `Pickup/Collect`, `Send`, `D2B`, `B2B`; create takes `Door2Door`, `Branch2Door`, `Door2Branch`, `Branch2Branch`; labels report `Home` or `Office`. The rate-to-create pairing is [inferred] from the rate table's descriptions |
-| 3 | Branch list auth | Every other endpoint shows `Authorization: Token`; the branch list shows no header |
-| 4 | Order detail fields | Five fields documented; live responses appear to carry more, such as `vendor_return` [reported] |
+| 3 | Branch list auth | Every other endpoint shows `Authorization: Token`; the branch list shows no header, and answers without one [observed 2026-11-16] |
+| 4 | Order detail fields | Five fields documented; the live response carries six more, including `vendor_return` as the string `"False"` [observed 2026-11-16] |
 | 5 | Returns | After `rtv_delivery` the order reads `Delivered`, so a return ends looking like a delivery |
 | 6 | Vendor spelling | The webhook label is `Send to Vendor`; the order's status is `Sent to Vendor` |
 | 7 | Timestamps | Webhooks are UTC; the status, ticket and customer APIs and both test payloads use `+05:45` |
 | 8 | Bulk comments | Said to be newest first; the doc's own example isn't sorted |
 | 9 | Pickup statuses | `Pickup Order Created` and `Sent for Pickup` appear in API examples but have no webhook event |
 | 10 | Undocumented events | `comment_added` [observed] and `returned_to_warehouse` [reported] arrive but aren't listed |
-| 11 | Redirect destination | Takes a branch **id**; create takes branch **names**; assigned branches return names and labels return a name and a `code`; no documented source of branch ids |
+| 11 | Redirect destination | Takes a branch **id**; create takes branch **names**; assigned branches return names and labels return a name and a `code`; no documented source of branch ids. The branch list carries a `pk` [observed 2026-11-16] |
 | 12 | Branch-name case | Rates, create and assigned branches use capitals (`TINKUNE`, `KATHMANDU`); the pickup-ticket example sends `Tinkune` |
 | 13 | Ticket paths | Create and close are under `/api/v2/vendor/ticket/`; detail is under `/api/v1/tickets/` and replies under `/api/v1/vendor/tickets/`. The v1 create path was dropped without a note |
 | 14 | Ticket detail sample | The braces put `responses` beside `ticket`; the indentation puts it inside |
