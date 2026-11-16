@@ -128,7 +128,7 @@ Use synthetic ids, names and phones only.
 **State protection**
 - [ ] A cancelled order receives `pickup_completed` → the order stays cancelled; staff are alerted.
 - [ ] A return (`rtv_delivery`, or `vendor_return` reading true with `Delivered`) never produces a "delivered" message to the customer, and follows the return decision (D4).
-- [ ] `vendor_return` turns true days after a normal delivery → handled as "return after delivered" (D4). The fixture sends it as a string (`"False"`, then `"True"`), as production does.
+- [ ] `vendor_return` turns true days after a normal delivery → handled as "return after delivered" (D4). The fixture sends `"False"` as a string, as production does, then the return as `"True"`, `"true"` and a boolean `true` in turn, since the form a returned parcel takes hasn't been seen.
 - [ ] `refund_initiated` → two child shipments; their later events never move the original order.
 - [ ] A forged webhook with a valid-looking body but a wrong secret → rejected; a return or refund event is confirmed with an API read before stock or money moves.
 - [ ] An unknown event and an unknown status → recorded, answered 2xx, order unchanged, alert raised.
@@ -153,9 +153,10 @@ Use synthetic ids, names and phones only.
 - [ ] A bulk label call that returns labels out of order, plus `not_found` ids → each label goes to its own order; the missing ones are flagged.
 
 **Parsing live responses** (shapes seen on production [observed 2026-11-16])
-- [ ] `vendor_return: "False"` (a string) reads as false; `"True"` and a boolean `true` read as true.
+- [ ] `vendor_return: "False"` (a string) reads as false; `"True"` and a boolean `true` read as true; any other value is flagged for a person, not guessed.
+- [ ] A bulk status answer with string keys in `result` and integers in `errors` → every requested id is found in one or the other.
 - [ ] A rate answer of `200 {"charge": "0"}`, or a `200` HTML page, is a failed quote: never shown as free delivery, never stored as the charge.
-- [ ] Money as a decimal string (order detail) and as a JSON number (label `cod_charge`) parse to the same decimal.
+- [ ] Money as a decimal string (order detail) and as a JSON number (label `cod_charge`, for example `1234.10`) parse to the same decimal, with no float on the way.
 
 **Limits**
 - [ ] The reconciliation run stays within its share of 20,000 reads a day for the expected fleet size.

@@ -23,7 +23,9 @@ document is in [api-contract.md](references/api-contract.md#changes-from-the-v1-
 calls was checked against the live production API, on 2026-11-16; what they
 returned is marked [observed 2026-11-16] and is real but unconfirmed by NCM.
 Anything marked [observed 2026-11-16], [observed], [reported], [inferred] or
-[unknown] must be confirmed with NCM before you depend on it. Anything marked
+[unknown] must be confirmed with NCM before you depend on it. Test anything
+that creates or changes data (create, comments, tickets, returns, redirects,
+webhooks) with a demo token on the demo host, never on production. Anything marked
 [v1 doc] is superseded: use it to recognise old code, never build on it. Adapt
 everything else (states, stock, money, jobs) to the destination project, with
 the user deciding the business rules.
@@ -76,7 +78,7 @@ Don't assume a particular framework, ORM, queue or cloud provider. Use what the 
 | A parcel's status history | `GET /api/v1/order/status?id=` (newest first) |
 | Many parcels' current status | `POST /api/v1/orders/statuses` `{"orders": [...]}` → `result` and `errors` (unknown ids land in `errors`) |
 | Delivery charge | `GET /api/v1/shipping-rate?creation=&destination=&type=` → `{"charge": "<decimal string>"}`; branch **names** only |
-| Branches; the account's pickup branches | `GET /api/v2/branches` (one unpaged array; `pk`, `code`, `name`; no token needed); `GET /api/v2/vendor/assigned-branches` (names) |
+| Branches; the account's pickup branches | `GET /api/v2/branches` (one unpaged array; `pk`, `code`, `name`; answered without a token, but send it); `GET /api/v2/vendor/assigned-branches` (names) |
 | Comments | `GET /api/v1/order/comment?id=`, `GET /api/v1/order/getbulkcomments` (rows carry `pk`), `POST /api/v1/comment` |
 | Return, exchange, redirect | `POST /api/v2/vendor/order/return`, `…/exchange-create`, `…/redirect` |
 | Tickets, including pickup requests | `POST /api/v2/vendor/ticket/create/new` (`branch` required for `Pickup`), `…/ticket/cod/create`, `…/ticket/close/<id>` |

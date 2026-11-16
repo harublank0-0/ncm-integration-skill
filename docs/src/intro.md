@@ -17,9 +17,11 @@ under `skills/ncm-integration/references/` and `docs/src/intro.md`, then run
 | Live read-only calls | 23 read-only calls to NCM's production API (`https://portal.nepalcanmove.com`) on 2026-11-16 with one vendor's production token. Only response shapes were recorded; nothing was created or changed |
 
 None of the PDFs is included here; ask NCM for current copies. Only the
-read-only calls above were checked against NCM's live API; everything they
-didn't cover (create, comments posted, tickets, returns, redirects, webhooks,
-limits) is untested.
+read-only calls above were checked against NCM's live API. Everything they
+didn't cover is untested: create, comments posted, tickets, returns,
+exchanges, redirects, webhooks and limits, and the reads customer detail,
+rating stats, ticket detail and bulk labels. Test anything that creates or
+changes data with a demo token on the demo host.
 
 | Label | Meaning |
 |---|---|
@@ -28,7 +30,7 @@ limits) is untested.
 | **[inferred]** | Follows from the documents without being stated |
 | **[observed]** | Seen in the production integration's code. Code shows what it *handles*, not what NCM *sends* |
 | **[observed 2026-11-16]** | Returned by NCM's production API to a read-only call on that date. What NCM *sent* to one account that day; not confirmed by NCM, and never [doc] |
-| **[reported]** | Reported by that integration's team from production checks |
+| **[reported]** | Reported by that integration's team from production checks, or by the holder of the token used for the live calls; not checked here |
 | **[recommended]** | A design rule for your project |
 | **[unknown]** | Not settled by any source, including what API doc v2 leaves unspecified |
 | **[NCM, date]** | Answered by NCM outside its documents, recorded in the open questions below |

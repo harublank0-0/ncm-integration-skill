@@ -20,7 +20,7 @@ documents.
 - **[inferred]** follows from the documents without being stated in them.
 - **[observed]** (no date) seen in one production integration's code, not in NCM's documents. Code shows what the integration *handles*, not what NCM *sends*; confirm with NCM before you depend on it.
 - **[observed 2026-11-16]** returned by NCM's production API to a read-only call on that date, for one vendor account (see Sources). It shows what NCM *sent*, not what it promises: NCM hasn't confirmed it in writing, and it may change. It never counts as [doc].
-- **[reported]** that integration's team reports it from production checks; not visible in its code.
+- **[reported]** that integration's team reports it from production checks, or the holder of the production token used for the live calls reports it from their account; not visible in the integration's code, and not checked here.
 - **[unknown]** no source settles it, including everything the API doc leaves unspecified. Don't fill the gap with a guess.
 - **[NCM, date]** answered by NCM outside its documents (email, call, ticket); the answer is recorded in [open-questions.md](open-questions.md#answers).
 
@@ -58,7 +58,7 @@ still [unknown].
 | Versioning | Paths mix `/api/v1/`, `/api/v1/vendor/`, `/api/v2/` and `/api/v2/vendor/` [doc]; the version belongs to each path, not to the document. Ticket replies are under `/api/v1/vendor/tickets/` (plural) while create and close are under `/api/v2/vendor/ticket/` (singular). No deprecation policy is documented, and the v1 doc's ticket path vanished without a note [unknown]. |
 | Pagination | `count`, `next`, `previous`, `results` for the staff list (default 20 per page) and the customer list (default 25, maximum 100) [doc]; both answered in that envelope, with `next` a string and `previous` `null` on the first page [observed 2026-11-16]. The branch list isn't paged: it returned one bare JSON array of every branch, 649 entries and about 240 KB [observed 2026-11-16]. |
 | Id fields | Responses don't agree on the id's name [observed 2026-11-16]: branches, staff and comments carry `pk`, customers carry `id`, orders carry `orderid`. The staff list is documented with `id` but returned `pk`. Read the field each endpoint actually sends. |
-| Money | Decimal **strings** with two decimals in the order detail (`cod_charge`, `delivery_charge`), the rate (`charge`) and the branch `surcharge`, which can be negative [observed 2026-11-16]. The label's `cod_charge` came back as a JSON **number** [observed 2026-11-16], unlike the order detail's. A rate for an unknown `type` is the string `"0"`, with no decimals (see [Errors](#errors)). Accept both strings and numbers, and parse money as a decimal, never as a float. |
+| Money | Decimal **strings** with two decimals in the order detail (`cod_charge`, `delivery_charge`), the rate (`charge`) and the branch `surcharge`, which can be negative [observed 2026-11-16]. The label's `cod_charge` came back as a JSON **number** [observed 2026-11-16], unlike the order detail's. A rate for an unknown `type` is the string `"0"`, with no decimals (see [Errors](#errors)). Accept both strings and numbers, and parse money as a decimal, never as a float. A JSON number becomes a float in most JSON parsers before your code sees it, so parse numbers as decimals (Python: `json.loads(body, parse_float=Decimal)`), or round to two decimals at once and store integer paisa. Converting a float to a decimal afterwards keeps the float's error. |
 | Response envelope | The webhook and ticket-detail/response endpoints (#17, #19, #20, #21) put `"success": true/false` in the body [doc]. Treat `success: false` as a failure even inside an HTTP 200. The webhook test (#19) answers 200 in all four documented outcomes, and its `success: true` only means NCM reached your server: that test passed only if `status_code` is 2xx. |
 | Sandbox | The documents are written against the demo host. Demo and production tokens are separate [reported]; whether the demo shares any data with production is [unknown]. |
 
@@ -109,7 +109,7 @@ Every endpoint takes `Authorization: Token <api-token>` unless the row says othe
 
 | # | Purpose | Method and path | Request | Success response [doc] |
 |---|---|---|---|---|
-| 1 | Branch list with details (phone, covered areas, district, region) | `GET /api/v2/branches` | none | Shape **not documented** in the doc, which shows no auth header for this one. Live: `200`, one bare array of every branch, not paged, and the same answer with no token [observed 2026-11-16]. Each item is `{"pk", "code", "name", "geocode", "address", "surcharge", "phone", "phone2", "branch_type", "areas_covered", "province_name", "district_name"}` [observed 2026-11-16]; see [Branches and rates](#branches-and-rates). It is the only response that carries branch ids (`pk`), which the redirect endpoint needs; one integration reads them here too [observed]. |
+| 1 | Branch list with details (phone, covered areas, district, region) | `GET /api/v2/branches` | none | Shape **not documented** in the doc, which shows no auth header for this one. Live: `200`, one bare array of every branch, not paged, and the same answer with no token [observed 2026-11-16]. Each item is `{"pk", "code", "name", "geocode", "address", "surcharge", "phone", "phone2", "branch_type", "areas_covered", "province_name", "district_name"}` [observed 2026-11-16]; see [Branches and rates](#branches-and-rates). It is the only response that carries a branch id (`pk`). Whether that is the id the redirect's `destination` needs is [unknown]; one integration reads branch ids here [observed]. |
 | 2 | Delivery charge between branches | `GET /api/v1/shipping-rate?creation=<from>&destination=<to>&type=<type>` | query `creation` (pickup branch), `destination` (destination branch), `type` (below). The doc's example uses branch **names** in capitals (`creation=TINKUNE&destination=POKHARA`) [doc]. Only names work: a branch `code` or `pk` gets the same HTML error page as an unknown name [observed 2026-11-16]. | Shape **not documented** in the doc. Live: `200 {"charge": "<decimal string>"}`; an unknown `type` gets `200 {"charge": "0"}` [observed 2026-11-16]. |
 | 3 | One order's detail | `GET /api/v1/order?id=<ncm-order-id>` | query `id` | `{"orderid", "cod_charge", "delivery_charge", "last_delivery_status", "payment_status"}`. Live: those five plus `vendor_return` (a **string**), `trackid`, `active`, `delivered_date`, `destination_branch_name` and `destination_branch_phone` [observed 2026-11-16]; see [Order detail](#order-detail). |
 | 4 | One order's comments, newest first | `GET /api/v1/order/comment?id=<ncm-order-id>` | query `id` | array of `{"orderid", "comments", "addedBy", "added_time"}`. Live: each item also carries `pk`, an integer [observed 2026-11-16]. |
@@ -196,7 +196,7 @@ paging and no envelope [observed 2026-11-16]. Invented values, observed shape:
 ```
 
 - 649 branches that day, about 240 KB. Cache the list and refresh it on a schedule, not per request.
-- It answered without a token with the same list, and answers with one too [observed 2026-11-16].
+- It answered without a token with the same list, and answers with one too [observed 2026-11-16]. Send the token anyway: the doc promises nothing either way, and NCM could start requiring it.
 - `pk` is an integer and is the only branch id any response carries. The redirect's `destination` needs a branch id; whether it is this `pk` is [unknown], since redirect wasn't called.
 - `branch_type` was `Branch` or `Logistics`. What `Logistics` means, and whether such a branch can be a pickup or destination branch, is [unknown].
 - `surcharge` is a decimal string and can be negative. How it relates to the rate is [unknown]; take the charge from the rate endpoint.
@@ -309,7 +309,7 @@ fields and six more [observed 2026-11-16]. Invented values, observed shape:
 
 - Money is a decimal **string** [doc], with two decimals [observed 2026-11-16]. Parse it as a decimal, never as a float.
 - `payment_status` was `"Delivery Pending"` on that undelivered parcel [observed 2026-11-16]; the doc shows `"Completed"`. The full list, and what `"Completed"` means (cash collected from the customer, or paid out to the vendor), are **not documented** [unknown]. Don't read either as "the vendor has been paid".
-- **`vendor_return` is a string**: `"False"` in the observed response [observed 2026-11-16]. A non-empty string is truthy in most languages, so `if detail["vendor_return"]` takes `"False"` for a return. Compare the text case-insensitively, and accept a real boolean too, since the return endpoint's documented response uses one [doc]. Only `"False"` was seen; that a returned parcel reads `"True"` is [inferred]. One integration's parser reads it as a boolean [observed]; check how yours parses it. Its production data holds NCM's `vendor_return` answers for many parcels [reported], and its return handling depends on them.
+- **`vendor_return` is a string**: `"False"` in the observed response [observed 2026-11-16]. A non-empty string is truthy in most languages, so `if detail["vendor_return"]` takes `"False"` for a return. Only `"False"` was seen, so the form a returned parcel takes is [unknown]; `"True"` is likely [inferred]. Read `"true"` in any case, or a boolean `true`, as true (the return endpoint's documented response uses a boolean [doc]); read `"false"` in any case, or `false`, as false; flag any other value for a person rather than guessing. One integration's production data holds NCM's `vendor_return` answers for many parcels [reported], and its return handling depends on them. How its parser converts the string isn't recorded here [unknown]; check how yours does.
 - `trackid` (a string), `active` (a boolean) and `delivered_date` (`null` before delivery) are present too [observed 2026-11-16]. That integration's parser reads them [observed]. `destination_branch_name` and `destination_branch_phone` are new. None of these six fields is documented; confirm with NCM before depending on one.
 
 ### Status history and bulk status
@@ -337,7 +337,7 @@ fields and six more [observed 2026-11-16]. Invented values, observed shape:
 }
 ```
 
-- Ids go in as integers and come back as **string keys** [doc].
+- Ids go in as integers and come back as **string keys** [doc], while `errors` holds integers [observed 2026-11-16]. Normalise both to one type before you check which of the ids you sent were answered; otherwise every id looks unanswered, or every error is missed.
 - `errors` lists ids NCM could not answer for. An id that doesn't exist lands there as an integer, while a known id in the same call is answered in `result` [observed 2026-11-16]. Other causes of an error entry are [unknown].
   - [observed] One integration found most of its long-stuck parcels listed here, while control parcels on the same token answered normally.
   - [reported] Ids created under another account's token went unanswered in one production check, so group ids by the token that created them.
@@ -446,7 +446,9 @@ how a transfer is reported back, is [unknown].
 - only the vendor who owns the order may do it.
 
 Record every return you request this way: the same `vendor_return` flag is what
-a post-delivery check reads to detect a return NCM started.
+a post-delivery check reads to detect a return NCM started. The order detail
+sends that flag as a string (`"False"` [observed 2026-11-16]); parse it as in
+[Order detail](#order-detail).
 
 **Exchange** `POST /api/v2/vendor/order/exchange-create` `{"pk": 1001}` [doc]: creates two orders, `cust_order` (a new delivery to the customer) and `ven_order` (the old item back to the vendor).
 
@@ -533,7 +535,7 @@ has agreed, and never log names, phones, emails or addresses.
 
 (Labels shortened here; each is the full object above.)
 
-- [observed 2026-11-16] One production label had exactly the documented keys, but its `cod_charge` was a JSON **number**, not a decimal string like the order detail's. Parse both forms to the same decimal. Its `delivery_type` was `Home`, and its `phone2` fields were `""`.
+- [observed 2026-11-16] One production label had exactly the documented keys, but its `cod_charge` was a JSON **number**, not a decimal string like the order detail's. Parse both forms to the same decimal, without passing through a float (see Money in [Basics](#basics)). Its `delivery_type` was `Home`, and its `phone2` fields were `""`.
 - `delivery_type` is `Office` for D2B and B2B orders and `Home` for the rest ([Delivery types](#delivery-types)).
 - `from` holds the vendor for vendor orders, or the sending customer otherwise. Which orders aren't vendor orders is [unknown].
 - `description` fields are `null` when the order has no description. Whether the whole `description` object can be `null` is [unknown]; handle both.

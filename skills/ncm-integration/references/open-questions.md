@@ -49,6 +49,9 @@ Statuses: `Open` (not asked yet), `Asked` (sent to NCM, no answer), `Answered`,
 | 22 | Customers | Whether customer detail's `orders` covers only your account, and the terms for using rating stats, which describe other vendors' orders. | Open |
 | 23 | Labels | What a barcode should encode, whether a printable label exists, how to set `handling` at create, and which orders have a non-vendor `from`. | Open |
 | 24 | Webhooks | Whether test webhooks carry the same headers as real ones. | Open |
+| 25 | Branches | Raised by the live checks: what `branch_type: "Logistics"` means and whether such a branch can be a pickup or destination branch; how a branch's `surcharge` (which can be negative) relates to the rate; whether rate branch names are matched case-sensitively; whether a real rate can be `"0"`, and why an unknown `type` returns `{"charge": "0"}` instead of an error; whether the branch list will keep answering without a token. | Open |
+| 26 | Comments | Raised by the live checks: whether the `pk` on API comment rows is the comment id, and whether it equals a webhook's `comment_id`. | Open |
+| 27 | Orders | Raised by the live checks: which values `vendor_return` takes (only the string `"False"` was seen; is a return `"True"`?), and whether money fields keep their types (decimal strings in the order detail and rates, a JSON number in the label's `cod_charge`). | Open |
 
 ## Answers
 

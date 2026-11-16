@@ -59,7 +59,9 @@ mentions NCM or Nepal Can Move.
   `[observed 2026-11-16]`, `[reported]`, `[recommended]`, `[unknown]` or
   `[NCM, date]`. Confirm anything labelled `[inferred]`, `[observed]`,
   `[observed 2026-11-16]`, `[reported]` or `[unknown]` with NCM before
-  depending on it; `[v1 doc]` is superseded and only helps recognise old code.
+  depending on it, and test anything that creates or changes data with a demo
+  token on the demo host; `[v1 doc]` is superseded and only helps recognise old
+  code.
 - Not affiliated with Nepal Can Move.
 
 ## Open questions for NCM
