@@ -117,6 +117,8 @@ tokens are separate [reported]. Auth on every call: `Authorization: Token <token
 | Reading `vendor_return` as a boolean | Live, it is the string `"False"`, which is truthy. Compare the text, and accept a real boolean too. |
 | Assuming every money field is a string | Order detail and rates send decimal strings; the label's `cod_charge` came back as a JSON number. Parse both to a decimal. |
 | Reading `id` from staff rows | Staff, branch and comment rows carry `pk`; customers carry `id`. |
+| Reading `comment_id` from API comment rows, or matching comments on exact time | API rows carry `pk`, which equals the webhook's `comment_id` [reported]; the two channels' times differ by a fraction of a second. One integration stored every NCM comment twice this way. |
+| Trusting NCM to reject a repeated `vref_id` | It doesn't: duplicates were all created [reported]. Make references unique per account. |
 | Reading the webhook test's `success: true` as a pass | It answers 200 with `success: true` even when your server returned 400. Check `status_code`. |
 | Assuming bulk labels come back in request order | Match on `orderid`; ids that aren't yours land in `not_found`. |
 | Trusting the URL token in the receiver without checking it | Verify it in constant time before storing anything. |

@@ -79,10 +79,11 @@ Starting points, not NCM's limits [observed].
 | 20 | Cancelling sent only the comment "Order cancelled." | Nobody knows whether NCM acts on it; the reconcile then stopped looking at the order. | Agree a cancel procedure with NCM, and keep watching cancelled parcels. |
 | 21 | A ticket closed on NCM's side stayed open locally | It blocked new pickup tickets until someone closed it by hand. | Poll `GET /api/v1/tickets/<id>/detail` (documented since API doc v2), or expire the local guard. |
 | 22 | The branch sync only upserted | Branches NCM retired stayed selectable. | Deactivate branches missing from a successful full sync. |
-| 23 | Sent the shop's own order number as `vref_id` | Two shops on the shared platform account can send the same reference. | Make it unique per account. |
+| 23 | Sent the shop's own order number as `vref_id` | Two shops on the shared platform account can send the same reference, and NCM accepts the repeat: dozens of references were sent by two or more shops, and every parcel was created (*reported*, 2026-11-16). | Make it unique per account. |
 | 24 | Called NCM's redirect **before** the local transaction | A lost race rolled back locally after NCM had already redirected the parcel. | Claim first, for every NCM write. |
 | 25 | Kept failed webhook messages in a dead-letter queue with no ordering guard | Without that guard, replaying them can move orders backwards and text customers again. | Build the ordering and state rules before relying on replay. |
-| 26 | No tests for the webhook, sync or reconcile functions | Every bug above shipped. | Start with the testing checklist. |
+| 26 | The comment poll read `comment_id`, which the comment APIs don't send (they send `pk`), and its fallback match needed the exact same time | Every NCM comment that arrived both by webhook and by poll was stored twice, so staff saw it twice: thousands of comments across more than a thousand orders from August, still happening in November (*reported*, 2026-11-16). The webhook's `timestamp` and the API's `added_time` for one comment always differ by a fraction of a second. | Read the API's `pk` as the comment id (it equals the webhook's `comment_id`), and match any fallback on time within a tolerance. |
+| 27 | No tests for the webhook, sync or reconcile functions | Every bug above shipped. | Start with the testing checklist. |
 
 ## Out of date since API doc v2
 
@@ -97,9 +98,9 @@ Their code follows the v1 doc here; don't copy these parts.
 These were learned in production, and NCM's documents don't confirm them.
 Confirm them with NCM.
 
-- `comment_added` webhooks arrive and are handled in code. `returned_to_warehouse` arrives too (*reported*). The webhook doc lists neither.
+- `comment_added` webhooks arrive and are handled in code. `returned_to_warehouse` and, rarely, `exchange_initiated` arrive too (*reported*). The webhook doc lists none of them; their payloads are in [webhooks-and-statuses.md](webhooks-and-statuses.md#events-doc).
 - NCM's portal has a separate "Order Comment Webhook URL", per the integration's own notes. API doc v2 mentions "comment events" on its webhook endpoint but documents no comment URL parameter.
 - The order detail carries `vendor_return`, `delivered_date`, `active` and a tracking id. A read-only check of production on 2026-11-16 confirmed all four, with `vendor_return` as the string `"False"` (see [api-contract.md](api-contract.md#order-detail)).
-- Its status map expects branch names embedded in statuses (`Dispatched to <BRANCH>`, `Arrived at <BRANCH>`) and the strings `Delivery Attempted` and `Out for Delivery`. Whether NCM sends them wasn't verified from a captured response.
+- Its status map expects branch names embedded in statuses (`Dispatched to <BRANCH>`, `Arrived at <BRANCH>`) and the strings `Delivery Attempted` and `Out for Delivery`. Its production data (2026-11-16) shows the first two are real, from the status-history API, while NCM never sent the last two in four and a half months (*reported*).
 - Webhook and API timestamps for the same transition differ; the integration treats rows within 5 minutes of each other as the same transition.
 - A bulk status call can put many ids under `errors` while control parcels on the same token answer normally (*reported*).

@@ -14,6 +14,7 @@ under `skills/ncm-integration/references/` and `docs/src/intro.md`, then run
 | NCM webhook doc | *NCM Webhook Integration Documentation* v1.1, "Last updated: September 2026", "Beta (subject to changes)". Current, and unchanged since this reference's previous edition |
 | NCM API doc v1 | *NCM API Documentation* PDF, file name dated `251222`, 18 pages. Superseded by v2 |
 | A production integration | One multi-vendor platform's NCM integration, read in late 2026 and built against the v1 API doc: its code, and its team's production checks |
+| Production data check | On 2026-11-16 the production integration's team queried its own production data read-only: several thousand parcels' status history (late June to mid-November 2026) and every webhook received (mid-July to mid-November). Findings are labelled [reported] |
 | Live read-only calls | 26 read-only calls to NCM's production API (`https://portal.nepalcanmove.com`) on 2026-11-16 with one vendor's production token. Only response shapes were recorded; nothing was created or changed |
 
 None of the PDFs is included here; ask NCM for current copies. Only the
@@ -116,7 +117,7 @@ sequenceDiagram
 | 7 | Timestamps | Webhooks are UTC; the status, ticket and customer APIs and both test payloads use `+05:45` |
 | 8 | Bulk comments | Said to be newest first; the doc's own example isn't sorted |
 | 9 | Pickup statuses | `Pickup Order Created` and `Sent for Pickup` appear in API examples but have no webhook event |
-| 10 | Undocumented events | `comment_added` [observed] and `returned_to_warehouse` [reported] arrive but aren't listed |
+| 10 | Undocumented events | `comment_added`, `returned_to_warehouse` and `exchange_initiated` arrive but aren't listed, and documented events carry unlisted fields [reported] |
 | 11 | Redirect destination | Takes a branch **id**; create takes branch **names**; assigned branches return names and labels return a name and a `code`; no documented source of branch ids. The branch list carries a `pk` [observed 2026-11-16] |
 | 12 | Branch-name case | Rates, create and assigned branches use capitals (`TINKUNE`, `KATHMANDU`); the pickup-ticket example sends `Tinkune` |
 | 13 | Ticket paths | Create and close are under `/api/v2/vendor/ticket/`; detail is under `/api/v1/tickets/` and replies under `/api/v1/vendor/tickets/`. The v1 create path was dropped without a note |
@@ -140,6 +141,7 @@ documents.
 - *NCM Webhook Integration Documentation*, version 1.1, "Last updated: September 2026", status "Beta (subject to changes)". Called **Webhook doc**. Its contract is in [webhooks-and-statuses.md](../skills/ncm-integration/references/webhooks-and-statuses.md). It is the current webhook document, unchanged since the previous edition of this skill; its version number is its own and unrelated to the API doc's.
 - *NCM API Documentation* (PDF, file name dated `251222`, 18 pages), the API document v2 replaces. Called **v1 doc**. The API doc restates every v1 endpoint with identical text, except the rows marked breaking in [Changes from the v1 doc](#changes-from-the-v1-doc).
 - **Live read-only calls**, 2026-11-16: 26 calls to `https://portal.nepalcanmove.com` with one vendor's production token (24 GETs and two read-only POSTs, bulk status and bulk labels), at most one every 2.5 s. Only response shapes and header names were recorded: key names, value types and counts, plus enum-like values and amounts. Nothing was created or changed: no order, comment, ticket, return, exchange, redirect or webhook call was made. Endpoints #7, #8, #10–#12, #14–#17, #19–#21, #23 and #24 weren't called; the undocumented `/order/redirectable` was. Results are labelled **[observed 2026-11-16]**; every example built from them uses invented values.
+- **Production data check**, 2026-11-16: the reference integration's team queried its own production database read-only, with every transaction rolled back. It covered several thousand parcels from a multi-shop platform: NCM status history from late June to mid-November 2026, and every webhook received from mid-July to mid-November. Its findings are labelled **[reported]**, like the team's earlier production checks; NCM hasn't confirmed them.
 
 **Labels used**
 
@@ -365,6 +367,12 @@ or is checked for duplicates, whether `fbranch` must be one of the account's
 assigned pickup branches (#18), and how to mark a parcel fragile or valuable
 (the label reports a `handling` value, but create has no field for it).
 
+What one platform's production data shows [reported]:
+
+- **`vref_id` isn't checked for duplicates.** Dozens of `vref_id` values were each sent by two or more shops on one account, and NCM created every parcel. Make your references unique per account yourself; NCM won't catch a repeat.
+- **`cod_charge: "0"` is accepted.** Parcels created with COD 0 were delivered. What the rider then collects is [unknown].
+- **`fbranch` needn't be an assigned pickup branch.** That platform's parcels usually name an `fbranch` that isn't one, and the creates succeed. What NCM uses `fbranch` for is [unknown].
+
 Synthetic request:
 
 ```json
@@ -437,7 +445,7 @@ fields and six more [observed 2026-11-16]. Invented values, observed shape:
 
 - Money is a decimal **string** [doc], with two decimals [observed 2026-11-16]. Parse it as a decimal, never as a float.
 - `payment_status` was `"Delivery Pending"` on that undelivered parcel [observed 2026-11-16]; the doc shows `"Completed"`. The full list, and what `"Completed"` means (cash collected from the customer, or paid out to the vendor), are **not documented** [unknown]. Don't read either as "the vendor has been paid".
-- **`vendor_return` is a string**: `"False"` in the observed response [observed 2026-11-16]. A non-empty string is truthy in most languages, so `if detail["vendor_return"]` takes `"False"` for a return. Only `"False"` was seen, so the form a returned parcel takes is [unknown]; `"True"` is likely [inferred]. Read `"true"` in any case, or a boolean `true`, as true (the return endpoint's documented response uses a boolean [doc]); read `"false"` in any case, or `false`, as false; flag any other value for a person rather than guessing. One integration's production data holds NCM's `vendor_return` answers for many parcels [reported], and its return handling depends on them. How its parser converts the string isn't recorded here [unknown]; check how yours does.
+- **`vendor_return` is a string**: `"False"` in the observed response [observed 2026-11-16]. A non-empty string is truthy in most languages, so `if detail["vendor_return"]` takes `"False"` for a return. One platform's production data had it as a string in every status-history row, `"False"` or `"True"`, never a boolean; returned parcels read `"True"` [reported]. Read `"true"` in any case, or a boolean `true`, as true (the return endpoint's documented response uses a boolean [doc]); read `"false"` in any case, or `false`, as false; flag any other value for a person rather than guessing. One integration's production data holds NCM's `vendor_return` answers for many parcels [reported], and its return handling depends on them. How its parser converts the string isn't recorded here [unknown]; check how yours does.
 - `trackid` (a string), `active` (a boolean) and `delivered_date` (`null` before delivery) are present too [observed 2026-11-16]. That integration's parser reads them [observed]. `destination_branch_name` and `destination_branch_phone` are new. None of these six fields is documented; confirm with NCM before depending on one.
 
 #### Status history and bulk status
@@ -468,6 +476,7 @@ fields and six more [observed 2026-11-16]. Invented values, observed shape:
 - Ids go in as integers and come back as **string keys** [doc], while `errors` holds integers [observed 2026-11-16]. Normalise both to one type before you check which of the ids you sent were answered; otherwise every id looks unanswered, or every error is missed.
 - `errors` lists ids NCM could not answer for. An id that doesn't exist lands there as an integer, while a known id in the same call is answered in `result` [observed 2026-11-16]. Other causes of an error entry are [unknown].
   - [observed] One integration found most of its long-stuck parcels listed here, while control parcels on the same token answered normally.
+  - [reported] Parcels still at `Sent for Pickup` land here: on one day, nearly all of one platform's parcels at that status were listed under `errors`. Don't read an error entry as "lost"; check the parcel's status history.
   - [reported] Ids created under another account's token went unanswered in one production check, so group ids by the token that created them.
 - Maximum batch size: [unknown]. One integration uses 100.
 - Whether a bulk call counts as one read or one per id against the 20,000 daily reads: [unknown].
@@ -480,14 +489,18 @@ fields and six more [observed 2026-11-16]. Invented values, observed shape:
 [{"orderid": 1001, "comments": "Customer not reachable", "addedBy": "NCM Staff", "added_time": "2026-01-02T16:43:15.687200+05:45"}]
 ```
 
-`addedBy` values seen in the doc: `"NCM Staff"`, `"Vendor"`. Comment ids are **not** in the documented response [doc]; one integration's code notes that the comment list "has not always included comment_id" and reads it when present [observed]. Live, every row from both comment endpoints (#4, #5) carried `pk`, an integer [observed 2026-11-16], most likely the comment's id [inferred]. Whether it equals a webhook's `comment_id` is [unknown].
+`addedBy` values seen in the doc: `"NCM Staff"`, `"Vendor"`. Comment ids are **not** in the documented response [doc]; one integration's code notes that the comment list "has not always included comment_id" and reads it when present [observed]. Live, every row from both comment endpoints (#4, #5) carried `pk`, an integer [observed 2026-11-16]. It is the comment's id: for every one of thousands of comments one platform received both ways, the API's `pk` equalled the webhook's `comment_id` (a digit string there) [reported].
 
-De-duplicate on (account, NCM order id, comment id) when one is present,
-taking `pk` from API rows, else on (account, NCM order id, text, `addedBy`,
-`added_time`). Until NCM confirms that `pk` and a webhook's `comment_id` are
-the same id, match comments across the two channels on text, `addedBy` and time
-as well. Your own comments come back with `addedBy: "Vendor"`; match them to the
-local comment by text within a few minutes rather than storing them twice.
+De-duplicate on (account, NCM order id, comment id), taking `pk` from API rows
+and `comment_id` from webhooks, compared as the same type. Fall back to text
+and time only when neither id is present, and then match the time **within a
+tolerance**: the API's `added_time` and the webhook's `timestamp` for one
+comment were never identical, though almost always within a second [reported].
+Webhooks carry no author field, so don't key on `addedBy` across channels.
+Reading `comment_id` from API rows, which have only `pk`, stored every NCM
+comment twice in one integration ([production-lessons.md](../skills/ncm-integration/references/production-lessons.md#behaviour-not-to-copy)).
+Your own comments come back with `addedBy: "Vendor"`; match them to the local
+comment by text within a few minutes rather than storing them twice.
 
 `GET /api/v1/order/getbulkcomments` returns the last 25 comments across the account's orders, "latest comments ... at the top" [doc]; it returned 25 rows [observed 2026-11-16]. The doc's own example is not strictly newest first, so sort locally. With only 25 rows, a busy account can lose comments between polls; use it as a supplement, not the only feed.
 
@@ -553,7 +566,7 @@ how a transfer is reported back, is [unknown].
 }
 ```
 
-- `status` is a boolean, and the doc doesn't say which value means open. The example pairs `false` with `closed_on: null`, so `false` is probably open [inferred]. Read `closed_on` too, and confirm with NCM.
+- `status` is a boolean, and the doc doesn't say which value means open. The example pairs `false` with `closed_on: null`, so `false` is probably open [inferred]. The one closed ticket a platform had stored read `status: true` [reported], which fits. Read `closed_on` too, and confirm with NCM.
 - `message` holds `<br>` line breaks, and the doc's example ends with an "Actual Pickup count" line the vendor didn't write [doc]. Turn the `<br>` into line breaks and escape the rest before display; never render it as HTML.
 - In the doc's example the braces put `responses` beside `ticket`, at the top level, while the indentation suggests it sits inside `ticket` [doc]. Read it from either place.
 - The shape of the "forbidden" answer is [unknown].
@@ -778,15 +791,33 @@ Notes [doc]:
 - **The event list has no event for "Pickup Order Created" or "Sent for
   Pickup".** The status APIs show them.
 
-Two more events arrive although the webhook doc doesn't list them:
-- `comment_added` [observed]: the integration's code handles it, reading the order id from `order_id` or `order_ids` like any other event, plus `comment` (the text), `timestamp`, `comment_id` (optional) and `added_by` (optional, default "NCM"). No captured payload exists in that code, so this shape is reconstructed from its parser:
+Three more events arrive although the webhook doc doesn't list them. One
+platform's stored webhooks, mid-July to mid-November 2026, show their payloads
+[reported]:
+- `comment_added`, by far the most frequent event. Invented values, reported shape:
 
   ```json
-  {"event": "comment_added", "order_id": "1001", "comment": "Customer asked for evening delivery", "comment_id": "501", "added_by": "NCM Staff", "timestamp": "2026-01-02T09:12:00.000000+00:00"}
+  {"event": "comment_added", "order_id": "1001", "comment_id": "501", "comment": "Customer asked for evening delivery", "comment_type": "Info", "display": "External", "status": "None", "timestamp": "2026-01-02T09:12:00.000000+00:00"}
   ```
 
-  Its notes say NCM's portal has a separate **"Order Comment Webhook URL"**, which can point at the same receiver. The API doc v2 now says the webhook endpoint manages URLs for "order status and comment events", which supports this, but it documents neither a comment payload nor a parameter for the comment URL [doc]; `webhook_url` is the order status URL.
-- `returned_to_warehouse` [reported]: its meaning and payload are [unknown].
+  - `order_id` and `comment_id` are digit strings. `comment_id` equals the `pk` of the same comment in the comment APIs [reported].
+  - `comment_type` was `Info` or, rarely, `Action`; `display` was `External`; `status` is the text `"None"`, not JSON `null`.
+  - There is **no author field**. One integration's parser reads an optional `added_by` (default "NCM") [observed]; it never arrives [reported].
+  - Comments go to NCM's separate portal field, the **"Order Comment Webhook URL"**, per that integration's notes. The API doc v2 says the webhook endpoint manages URLs for "order status and comment events", but it documents neither this payload nor a parameter for the comment URL [doc]; `webhook_url` is the order status URL. Comment webhooks kept arriving at a URL whose secret matched no shop, so an old comment URL stays set until someone changes it in the portal [reported].
+- `returned_to_warehouse`: a bulk event (`order_ids`) that also carries a `returnReason` string [reported]. Its meaning is [unknown]; the order status `Returned to Warehouse` appears in the status history from the same period.
+- `exchange_initiated`: rare. It carries `customer_order` and `exchange_order` objects [reported], like the two orders the exchange endpoint creates; their exact fields weren't recorded here [unknown].
+
+Undocumented fields on documented events [reported]:
+- `delivery_completed` usually carries `cod_charge` and `delivery_charge` as decimal strings (in about 70% of events), next to the documented fields.
+- `order_marked_rtv` carries a `returnReason` string.
+- `rtv_delivery` carries `orders: [{"order_id", "delivery_charge"}]` next to `order_ids`.
+
+Treat all of these as optional: NCM hasn't documented them.
+
+What that platform's data shows about delivery [reported]:
+- **No webhook ever came for `Pickup Order Created` or `Sent for Pickup`**, as the doc says.
+- **The largest bulk event held 100 ids** (`pickup_completed`, averaging under 50); 100 may be NCM's cap [unknown].
+- **No parcel ever received an event older than one it had already received**, across thousands of parcels with two or more events. NCM doesn't promise this; keep the ordering rules below.
 
 #### Payloads [doc]
 
@@ -822,9 +853,10 @@ are included.
 - Both then move like any other order, so their later events arrive too.
 - `cod_charge` may be a string or `null`.
 
-`timestamp` is "ISO 8601 timestamp in UTC" [doc]. The status API's
-`added_time` uses a `+05:45` offset [doc]. Always parse to an instant, and
-store and compare instants.
+`timestamp` is "ISO 8601 timestamp in UTC" [doc], and status and comment
+webhooks did carry `+00:00` [reported]. The status API's `added_time` uses a
+`+05:45` offset [doc], as did most test webhooks [reported]. Always parse to an
+instant, and store and compare instants.
 
 Test payload, from the portal's "Test Webhook" button or from
 `POST /api/v2/vendor/webhook/test` (note the different shape, and its `+05:45`
@@ -849,19 +881,20 @@ are every string the sources show.
 | `Sent for Pickup` | status API example [doc] | No webhook. NCM sets it for every new pickup parcel, whether or not the vendor has packed it [reported]. |
 | `Pickup Complete` | status API [doc]; `pickup_completed` [doc] | |
 | `Drop off Order Collected` | `dropoff_collected` [doc] | |
-| `Dispatched` | `order_dispatched` [doc] | No API example shows it. One integration's poll map accepts `Dispatched to <BRANCH>`, per a code comment, with no captured payload [observed]. |
-| `Arrived` | bulk status example; `order_arrived` [doc] | The same integration accepts `Arrived at <BRANCH>` [observed]. |
+| `Dispatched` | `order_dispatched` [doc] | No API example shows it. The status-history API sends `Dispatched to <BRANCH>`, often, while the webhook says just `Dispatched` [reported]. `<BRANCH>` can be a return branch, such as `RETURN ( TINKUNE)`, spaces included [reported]. |
+| `Arrived` | bulk status example; `order_arrived` [doc] | Likewise `Arrived at <BRANCH>` in the status-history API, `Arrived` in the webhook [reported]. |
 | `Sent for Delivery` | status API; `sent_for_delivery` [doc] | |
-| `Out for Delivery` | one integration's status map [observed] | that integration's own name for the Sent for Delivery stage; its poll map accepts both; whether NCM sends it is unverified |
+| `Out for Delivery` | one integration's status map [observed] | that integration's own name for the Sent for Delivery stage. NCM never sent it in four and a half months of that platform's data [reported]. |
 | `Delivered` | everywhere [doc] | **Also the final status of a return to the vendor** [doc]. |
 | `Order Marked Return` | `order_marked_rtv` [doc] | webhook label |
 | `Send to Vendor` / `Sent to Vendor` | webhook label vs the order's NCM status [doc]; `Sent to Vendor` is also a `last_delivery_status` in the API doc's customer-detail example | two spellings for one stage |
 | `RTV Delivered` | `rtv_delivery` [doc] | the order itself then reads `Delivered` |
 | `Refund Initiated` | `refund_initiated` [doc] | |
 | `In Transit` | test webhook payload only (webhook doc and API doc) [doc] | |
-| `Delivery Attempted` | one integration's status map [observed] | not in the documents; whether NCM sends it is unverified |
-| `returned_to_warehouse` (event) | [reported] | not in the documents; meaning [unknown] |
-| `Returned to Warehouse` (status) | `last_delivery_status` in the undocumented `/order/redirectable` list [observed 2026-11-16] | not in the documents. Every parcel on the list's first page had it. Probably the status behind the `returned_to_warehouse` event, and a parcel NCM holds that can be redirected [inferred]; meaning [unknown] |
+| `Delivery Attempted` | one integration's status map [observed] | not in the documents. NCM never sent it in four and a half months of that platform's data [reported]. |
+| `returned_to_warehouse` (event) | [reported] | not in the documents; carries a `returnReason`; meaning [unknown] |
+| `Returned to Warehouse` (status) | status-history API, from late July 2026 [reported]; `last_delivery_status` in the undocumented `/order/redirectable` list [observed 2026-11-16] | not in the documents. Every parcel on the redirectable list's first page had it. Probably the status behind the `returned_to_warehouse` event, and a parcel NCM holds that can be redirected [inferred]; meaning [unknown] |
+| `exchange_initiated` (event) | [reported] | not in the documents; carries `customer_order` and `exchange_order` |
 | `Completed` | `payment_status` in the order detail [doc] | a payment field, not a delivery status |
 | `Delivery Pending` | `payment_status` in the order detail [observed 2026-11-16] | on an undelivered parcel; a payment field, not a delivery status |
 
@@ -901,7 +934,7 @@ explicit decision; "copy NCM's string onto the order" is not one.
 | `order_dispatched` | in transit | optional | |
 | `order_arrived` | at destination branch | optional | |
 | `sent_for_delivery` | out for delivery | e.g. → "Out for delivery" | customer SMS? |
-| `Delivery Attempted` (poll) [observed] | stays out for delivery; the attempt is recorded | none | staff alert? |
+| `Delivery Attempted` (poll) [observed]; never sent by NCM in one platform's data [reported] | stays out for delivery; the attempt is recorded | none | staff alert? |
 | `delivery_completed`, or `Delivered` from a poll, on a parcel **not** in a return stage | delivered | e.g. → "Delivered", **only if not a return**: no RTV event on record, and the order detail's `vendor_return` isn't true [observed field] | COD becomes *collectable*, not settled; the "delivered" message |
 | `Delivered` from a poll on a parcel in a return stage (`return requested` or `return in transit`) | returned to vendor | as `rtv_delivery` | as `rtv_delivery`. NCM's order reads `Delivered` after `rtv_delivery` [doc], so this is how a return completes when the `rtv_delivery` webhook was lost |
 | a return signal **after** delivered (`vendor_return` turns true, or a late RTV event) | returned | decide: move the order to returned, or alert staff | reverse the COD expectation; restock per D4; no "delivered" message was wrong, but the customer may need a word |
@@ -910,7 +943,8 @@ explicit decision; "copy NCM's string onto the order" is not one.
 | `rtv_delivery` | returned to vendor | e.g. → "Returned" | restock? (a business decision) |
 | `refund_initiated` | refund pending on the original; two **child shipments** (customer leg, refund leg) | the original order: refund pending; the legs' own events never move it | money moves back (who refunds a prepaid customer?); finance decision |
 | `returned_to_warehouse` [reported], or `Returned to Warehouse` from a poll [observed 2026-11-16] | record the raw event or status; no stage | none until NCM explains it | staff alert |
-| `comment_added` [observed] | none | none | store the comment, notify staff |
+| `comment_added` [reported] | none | none | store the comment once (match on comment id with the polled copy), notify staff |
+| `exchange_initiated` [reported] | record the event and the two new orders as child shipments | none until the user decides | staff alert; decide stock and money as for an exchange you requested |
 | unknown event | record it | none | alert; answer 2xx |
 
 If your own system calls `POST /api/v2/vendor/order/return`, record that you
@@ -1047,12 +1081,12 @@ Ask these before writing code. Each changes the data model or money.
 | D2 | **When is the parcel created?** On confirm, on "ready to ship", or by a person clicking. | NCM has no hold and no cancel endpoint; a created parcel may be collected. |
 | D3 | **Cancellation after creation.** How is NCM told (ticket, comment, portal by hand)? What if NCM collects it anyway? | No cancel endpoint is documented. |
 | D4 | **Returns.** Which events move the order; does a return restock automatically or wait for staff; how is a `Delivered` that is really a return handled? | NCM ends a return as `Delivered`. |
-| D5 | **COD amount.** What goes in `cod_charge` for prepaid, partly paid and discounted orders; is the delivery charge added? | NCM defines it as "cod amount including delivery". Whether `"0"` is accepted for a prepaid order is undocumented. |
+| D5 | **COD amount.** What goes in `cod_charge` for prepaid, partly paid and discounted orders; is the delivery charge added? | NCM defines it as "cod amount including delivery". Whether `"0"` is accepted for a prepaid order is undocumented; one platform's COD-0 parcels were created and delivered [reported], but what the rider collects then is [unknown]. |
 | D6 | **COD settlement.** What proves the vendor was paid, who reconciles NCM's remittance, is `Delivered` "collectable" or "paid", and do vendors on their own NCM account settle with NCM directly? | NCM documents a COD-transfer *request* ticket (bank details), but no remittance statement or settlement field. |
 | D7 | **Inventory.** Which courier states, if any, move stock; does a courier status ever override a staff decision? | Stock bugs are expensive and silent. |
 | D8 | **Customer messages.** Which courier events text or email the customer, and never twice. | Duplicate and out-of-order webhooks happen. |
 | D9 | **Status mapping.** Fill in the template in webhooks-and-statuses.md for the project's real order states. | The project's states are its own. |
-| D10 | **Branches and rates.** Live NCM calls, a cached copy, or a stored table; refresh schedule; how the destination branch is chosen (from the address, a map pin, or staff); the shop's pickup branch, from the account's assigned branches (whether create's `fbranch` must be one of them is [unknown]). | Response shapes for the branch list and rates are undocumented, but were seen live: an unpaged array of 649 branches with `pk`, `code` and `name`, and `{"charge": "<decimal string>"}` [observed 2026-11-16]. Rates take branch names only. No documented response carries the branch ids a redirect needs; the branch list's `pk` is the likely source [inferred], and one integration reads it [observed]. Assigned pickup branches are documented, as names only. |
+| D10 | **Branches and rates.** Live NCM calls, a cached copy, or a stored table; refresh schedule; how the destination branch is chosen (from the address, a map pin, or staff); the shop's pickup branch, from the account's assigned branches (create's `fbranch` needn't be one of them: one platform's creates succeed with other branches [reported], though what NCM uses `fbranch` for is [unknown]). | Response shapes for the branch list and rates are undocumented, but were seen live: an unpaged array of 649 branches with `pk`, `code` and `name`, and `{"charge": "<decimal string>"}` [observed 2026-11-16]. Rates take branch names only. No documented response carries the branch ids a redirect needs; the branch list's `pk` is the likely source [inferred], and one integration reads it [observed]. Assigned pickup branches are documented, as names only. |
 | D11 | **Pickup requests.** How NCM is asked to collect: a `Pickup` ticket by hand or on a schedule, or arranged outside the system; which assigned branch each ticket names; how you avoid filing two while one is open. | NCM has no pickup endpoint. A `Pickup` ticket must name one of the account's assigned pickup branches. You learn a ticket closed only by polling its detail, and replying to a closed ticket reopens it. |
 
 ### Implementation order
@@ -1119,7 +1153,7 @@ Each step ends with a checkpoint. Don't start the next step until it passes.
      - Retry automatically only when the request clearly never reached NCM (connection refused, DNS failure).
      - After a timeout or 5xx, read the order's thread and look for the text before posting again: a comment post isn't idempotent.
      - Failures go to the job system's failure store (a dead-letter queue or a failed-jobs table).
-   - Inbound comments from `comment_added` [observed], plus a periodic poll. De-duplicate on (account, NCM order id, `comment_id`) when present, else (account, NCM order id, text, author, `added_time`). Match your own echoed comments by text within a few minutes.
+   - Inbound comments from `comment_added` [reported], plus a periodic poll. De-duplicate on (account, NCM order id, comment id): the webhook's `comment_id` and the API row's `pk` are the same id [reported]. Without an id, fall back to text and time **within a tolerance**, since the two channels' times differ by a fraction of a second; webhooks carry no author. Match your own echoed comments by text within a few minutes.
    - Redirects and returns: claim locally, call NCM, then record, as for create.
    - Labels from the label-data endpoints: batches of at most 100, matched to orders by `orderid`, with `not_found` ids flagged.
    - *Checkpoint:* a comment round-trips once, never twice.
@@ -1186,6 +1220,7 @@ Use synthetic ids, names and phones only.
 **Parsing live responses** (shapes seen on production [observed 2026-11-16])
 - [ ] `vendor_return: "False"` (a string) reads as false; `"True"` and a boolean `true` read as true; any other value is flagged for a person, not guessed.
 - [ ] A bulk status answer with string keys in `result` and integers in `errors` → every requested id is found in one or the other.
+- [ ] The same NCM comment arrives as a webhook (`comment_id: "501"`, UTC `timestamp`) and from the comment poll (`pk: 501`, `added_time` 0.4 s later, `+05:45`) → stored once.
 - [ ] A rate answer of `200 {"charge": "0"}`, or a `200` HTML page, is a failed quote: never shown as free delivery, never stored as the charge.
 - [ ] Money as a decimal string (order detail) and as a JSON number (label `cod_charge`, for example `1234.10`) parse to the same decimal, with no float on the way.
 
@@ -1276,10 +1311,11 @@ Starting points, not NCM's limits [observed].
 | 20 | Cancelling sent only the comment "Order cancelled." | Nobody knows whether NCM acts on it; the reconcile then stopped looking at the order. | Agree a cancel procedure with NCM, and keep watching cancelled parcels. |
 | 21 | A ticket closed on NCM's side stayed open locally | It blocked new pickup tickets until someone closed it by hand. | Poll `GET /api/v1/tickets/<id>/detail` (documented since API doc v2), or expire the local guard. |
 | 22 | The branch sync only upserted | Branches NCM retired stayed selectable. | Deactivate branches missing from a successful full sync. |
-| 23 | Sent the shop's own order number as `vref_id` | Two shops on the shared platform account can send the same reference. | Make it unique per account. |
+| 23 | Sent the shop's own order number as `vref_id` | Two shops on the shared platform account can send the same reference, and NCM accepts the repeat: dozens of references were sent by two or more shops, and every parcel was created (*reported*, 2026-11-16). | Make it unique per account. |
 | 24 | Called NCM's redirect **before** the local transaction | A lost race rolled back locally after NCM had already redirected the parcel. | Claim first, for every NCM write. |
 | 25 | Kept failed webhook messages in a dead-letter queue with no ordering guard | Without that guard, replaying them can move orders backwards and text customers again. | Build the ordering and state rules before relying on replay. |
-| 26 | No tests for the webhook, sync or reconcile functions | Every bug above shipped. | Start with the testing checklist. |
+| 26 | The comment poll read `comment_id`, which the comment APIs don't send (they send `pk`), and its fallback match needed the exact same time | Every NCM comment that arrived both by webhook and by poll was stored twice, so staff saw it twice: thousands of comments across more than a thousand orders from August, still happening in November (*reported*, 2026-11-16). The webhook's `timestamp` and the API's `added_time` for one comment always differ by a fraction of a second. | Read the API's `pk` as the comment id (it equals the webhook's `comment_id`), and match any fallback on time within a tolerance. |
+| 27 | No tests for the webhook, sync or reconcile functions | Every bug above shipped. | Start with the testing checklist. |
 
 ### Out of date since API doc v2
 
@@ -1294,10 +1330,10 @@ Their code follows the v1 doc here; don't copy these parts.
 These were learned in production, and NCM's documents don't confirm them.
 Confirm them with NCM.
 
-- `comment_added` webhooks arrive and are handled in code. `returned_to_warehouse` arrives too (*reported*). The webhook doc lists neither.
+- `comment_added` webhooks arrive and are handled in code. `returned_to_warehouse` and, rarely, `exchange_initiated` arrive too (*reported*). The webhook doc lists none of them; their payloads are in [webhooks-and-statuses.md](../skills/ncm-integration/references/webhooks-and-statuses.md#events-doc).
 - NCM's portal has a separate "Order Comment Webhook URL", per the integration's own notes. API doc v2 mentions "comment events" on its webhook endpoint but documents no comment URL parameter.
 - The order detail carries `vendor_return`, `delivered_date`, `active` and a tracking id. A read-only check of production on 2026-11-16 confirmed all four, with `vendor_return` as the string `"False"` (see [api-contract.md](../skills/ncm-integration/references/api-contract.md#order-detail)).
-- Its status map expects branch names embedded in statuses (`Dispatched to <BRANCH>`, `Arrived at <BRANCH>`) and the strings `Delivery Attempted` and `Out for Delivery`. Whether NCM sends them wasn't verified from a captured response.
+- Its status map expects branch names embedded in statuses (`Dispatched to <BRANCH>`, `Arrived at <BRANCH>`) and the strings `Delivery Attempted` and `Out for Delivery`. Its production data (2026-11-16) shows the first two are real, from the status-history API, while NCM never sent the last two in four and a half months (*reported*).
 - Webhook and API timestamps for the same transition differ; the integration treats rows within 5 minutes of each other as the same transition.
 - A bulk status call can put many ids under `errors` while control parcels on the same token answer normally (*reported*).
 
@@ -1319,8 +1355,9 @@ Background for each question is in [api-contract.md](../skills/ncm-integration/r
 
 An answer seen on the live API but not given by NCM is labelled
 `[observed <date>]`, never `[doc]` or `[NCM, <date>]`, and its status says
-"(observed)". Still ask NCM to confirm it: what one account saw on one day can
-change.
+"(observed)". A finding from the reference integration's own production data
+is labelled `[reported]`, and its status says "(reported)". Still ask NCM to
+confirm both: what one account saw can change.
 
 Statuses: `Open` (not asked yet), `Asked` (sent to NCM, no answer), `Answered`,
 `Partly answered` (some of the question is settled; the rest is still open),
@@ -1335,35 +1372,37 @@ Statuses: `Open` (not asked yet), `Asked` (sent to NCM, no answer), `Answered`,
 | 3 | Branches | Response shapes for `/api/v2/branches` and `/api/v1/shipping-rate`, and whether the branch list needs a token. | Answered (observed) |
 | 4 | Cancellation | How to cancel an order, or hold one, after create, and whether a ticket type is meant for it. | Open |
 | 5 | Cancellation | Whether a parcel can still be collected after you decide to cancel it, and how to stop that. | Open |
-| 6 | Status | Maximum batch size for `/api/v1/orders/statuses`, and why an id lands in `errors`. | Partly answered (observed) |
+| 6 | Status | Maximum batch size for `/api/v1/orders/statuses`, and why an id lands in `errors`. | Partly answered (observed, reported) |
 | 7 | COD | What `payment_status` values exist, how COD remittance to the vendor is reported, and what follows a COD transfer ticket. | Partly answered (observed) |
-| 8 | Orders | Whether `vref_id` is checked for duplicates, and whether a parcel can be looked up by it (the label's `vendor_orderid` suggests NCM stores it). | Open |
-| 9 | Tickets | Whether the v1 doc's ticket path `/api/v2/vendor/ticket/create` still works, and until when. | Open |
-| 10 | Tickets | For `Pickup` tickets: whether `branch` is matched case-sensitively, the error for a missing or unassigned branch, and whether create's `fbranch` must also be an assigned pickup branch. | Open |
-| 11 | Tickets | Which ticket-detail `status` value means open. | Open |
-| 12 | Webhooks | How to set an order comment webhook URL through the API (the webhook endpoint mentions comment events and "URLs" but takes only `webhook_url`), and the comment event's payload. | Open |
-| 13 | Webhooks | The full list of order statuses and webhook events, including `comment_added`, `returned_to_warehouse`, and the maximum ids in one bulk event. | Open |
+| 8 | Orders | Whether `vref_id` is checked for duplicates, and whether a parcel can be looked up by it (the label's `vendor_orderid` suggests NCM stores it). | Partly answered (reported) |
+| 9 | Tickets | Whether the v1 doc's ticket path `/api/v2/vendor/ticket/create` still works, and until when. | Dropped |
+| 10 | Tickets | For `Pickup` tickets: whether `branch` is matched case-sensitively, the error for a missing or unassigned branch, and whether create's `fbranch` must also be an assigned pickup branch. | Partly answered (reported) |
+| 11 | Tickets | Which ticket-detail `status` value means open. | Partly answered (reported) |
+| 12 | Webhooks | How to set an order comment webhook URL through the API (the webhook endpoint mentions comment events and "URLs" but takes only `webhook_url`), and the comment event's payload. | Partly answered (reported) |
+| 13 | Webhooks | The full list of order statuses and webhook events, including `comment_added`, `returned_to_warehouse`, and the maximum ids in one bulk event. | Partly answered (reported) |
 | 14 | Orders | Whether undocumented fields (`vendor_return`, `delivered_date`, `active`, a tracking id) and `/order/redirectable` are supported for vendors. | Partly answered (observed) |
-| 15 | Webhooks | Whether webhooks for one parcel arrive in order. | Open |
+| 15 | Webhooks | Whether webhooks for one parcel arrive in order. | Partly answered (reported) |
 | 16 | Orders | Which characters names and addresses may contain (Devanagari?), and the length limits per field, comment and ticket response. | Open |
 | 17 | Webhooks | How to rotate a webhook secret without losing events: whether a new `webhook_url` takes effect at once, and whether the old one keeps receiving in-flight events. | Open |
-| 18 | COD | Whether `cod_charge: "0"` is accepted for a prepaid order, and what the rider then collects. | Open |
+| 18 | COD | Whether `cod_charge: "0"` is accepted for a prepaid order, and what the rider then collects. | Partly answered (reported) |
 | 19 | Branches | Where branch ids come from, since the redirect's `destination` needs one, and whether the label's branch `code` is accepted anywhere. | Partly answered (observed) |
-| 20 | Status | Whether `Delivery Attempted`, `Out for Delivery` and `Dispatched to <BRANCH>` are real status strings, and what `returned_to_warehouse` means. | Partly answered (observed) |
+| 20 | Status | Whether `Delivery Attempted`, `Out for Delivery` and `Dispatched to <BRANCH>` are real status strings, and what `returned_to_warehouse` means. | Partly answered (observed, reported) |
 | 21 | Comments | Whether posting a comment or a ticket response is idempotent in any way, since a comment returns no id. | Open |
 | 22 | Customers | Whether customer detail's `orders` covers only your account, and the terms for using rating stats, which describe other vendors' orders. | Open |
 | 23 | Labels | What a barcode should encode, whether a printable label exists, how to set `handling` at create, and which orders have a non-vendor `from`. | Open |
 | 24 | Webhooks | Whether test webhooks carry the same headers as real ones. | Open |
-| 25 | Branches | Raised by the live checks: what `branch_type: "Logistics"` means and whether such a branch can be a pickup or destination branch; how a branch's `surcharge` (which can be negative) relates to the rate; whether rate branch names are matched case-sensitively; whether a real rate can be `"0"`, and why an unknown `type` returns `{"charge": "0"}` instead of an error; whether the branch list will keep answering without a token. | Partly answered (observed) |
-| 26 | Comments | Raised by the live checks: whether the `pk` on API comment rows is the comment id, and whether it equals a webhook's `comment_id`. | Open |
-| 27 | Orders | Raised by the live checks: which values `vendor_return` takes (only the string `"False"` was seen; is a return `"True"`?), and whether money fields keep their types (decimal strings in the order detail and rates, a JSON number in the label's `cod_charge`). | Open |
+| 25 | Branches | Raised by the live checks: what `branch_type: "Logistics"` means and whether such a branch can be a pickup or destination branch; how a branch's `surcharge` (which can be negative) relates to the rate; whether rate branch names are matched case-sensitively; whether a real rate can be `"0"`, and why an unknown `type` returns `{"charge": "0"}` instead of an error; whether the branch list will keep answering without a token. | Partly answered (observed, reported) |
+| 26 | Comments | Raised by the live checks: whether the `pk` on API comment rows is the comment id, and whether it equals a webhook's `comment_id`. | Answered (reported) |
+| 27 | Orders | Raised by the live checks: which values `vendor_return` takes (only the string `"False"` was seen; is a return `"True"`?), and whether money fields keep their types (decimal strings in the order detail and rates, a JSON number in the label's `cod_charge`). | Partly answered (reported) |
 
 ### Answers
 
 Entries dated 2026-11-16 come from read-only calls to the production API with
 one vendor's production token (26 calls, shapes only; see the sources in
-[api-contract.md](../skills/ncm-integration/references/api-contract.md)). None is confirmed by NCM; ask NCM to
-confirm each before go-live.
+[api-contract.md](../skills/ncm-integration/references/api-contract.md)), or, where marked "reported", from the
+reference integration's read-only check of its own production data on the same
+day (several thousand parcels, late June to mid-November 2026). None is
+confirmed by NCM; ask NCM to confirm each before go-live.
 
 #### 1. Hosts
 2026-11-16, observed with the production token via read-only calls; not
@@ -1388,6 +1427,10 @@ types, Branches and rates), SKILL.md.
 confirmed by NCM. An id that doesn't exist is listed in `errors` as an integer,
 while a known id in the same call is answered in `result`. Still open: the
 maximum batch size, and other causes of an `errors` entry.
+
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. Parcels still at `Sent for Pickup` are listed under `errors`: on one day,
+nearly all of that platform's parcels at that status were.
 Updated: api-contract.md (endpoint catalog #9, Status history and bulk status).
 
 #### 7. COD and payment_status
@@ -1396,6 +1439,51 @@ confirmed by NCM. An undelivered parcel read `payment_status: "Delivery
 Pending"`; the doc shows `"Completed"`. Still open: the full list of values,
 what each means, how remittance is reported, and what follows a COD ticket.
 Updated: api-contract.md (Order detail).
+
+#### 8. vref_id
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. NCM doesn't check `vref_id` for duplicates: dozens of values were each sent
+by two or more shops on one account, and every parcel was created. Still open:
+whether a parcel can be looked up by `vref_id`.
+Updated: api-contract.md (Create an order), production-lessons.md (#23).
+
+#### 9. Old ticket path
+2026-11-16, dropped: the reference integration moved to
+`/api/v2/vendor/ticket/create/new` that day, so the answer no longer matters to
+it. Other projects should move rather than ask.
+
+#### 10. Pickup tickets and fbranch
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. Create's `fbranch` needn't be an assigned pickup branch: that platform's
+parcels usually name another branch, and the creates succeed. Still open: what
+NCM uses `fbranch` for, whether a ticket's `branch` is matched
+case-sensitively, and the error for a missing or unassigned branch.
+Updated: api-contract.md (Create an order), checklists.md (D10).
+
+#### 11. Ticket status
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. The one closed ticket it had stored read `status: true`, which fits the
+doc example's `false` for an open ticket. Still open: NCM's confirmation.
+Updated: api-contract.md (Tickets).
+
+#### 12. Comment webhooks
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. `comment_added` carries `event`, `order_id` and `comment_id` (digit
+strings), `comment`, `comment_type` (`Info`, rarely `Action`), `display`
+(`External`), `status` (the text `"None"`) and a UTC `timestamp`, and no author
+field. Comment webhooks also kept arriving at a URL whose secret matched no
+shop. Still open: how to set the comment webhook URL through the API.
+Updated: webhooks-and-statuses.md (Events), checklists.md.
+
+#### 13. Statuses and events
+2026-11-16, reported from one platform's webhooks, mid-July to mid-November;
+not confirmed by NCM. All ten documented events arrived, plus three that aren't
+documented: `comment_added`, `returned_to_warehouse` (with a `returnReason`)
+and, rarely, `exchange_initiated`. Some documented events carry extra fields.
+The largest bulk event held 100 ids. Still open: NCM's official lists of
+statuses and events, and whether 100 ids is the cap.
+Updated: webhooks-and-statuses.md (Events, Status vocabulary, Mapping
+template).
 
 #### 14. Undocumented order fields
 2026-11-16, observed with the production token via read-only calls; not
@@ -1410,6 +1498,19 @@ page. Still open: whether vendors may rely on these fields and that endpoint.
 Updated: api-contract.md (endpoint catalog #3 and #6, Order detail, Status
 history and bulk status, Undocumented endpoints), SKILL.md.
 
+#### 15. Webhook order
+2026-11-16, reported from one platform's webhooks; not confirmed by NCM. Across
+thousands of parcels with two or more status webhooks, none received an event
+older than one it had already received. That isn't a promise: keep the
+ordering rules. Still open: NCM's statement.
+Updated: webhooks-and-statuses.md (Events).
+
+#### 18. COD 0
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. Parcels created with `cod_charge` 0 were delivered, so NCM accepts it.
+Still open: what the rider collects for such a parcel.
+Updated: api-contract.md (Create an order), checklists.md (D5).
+
 #### 19. Branch ids
 2026-11-16, observed with the production token via read-only calls; not
 confirmed by NCM. The branch list carries an integer `pk` and a `code` for each
@@ -1423,8 +1524,14 @@ Updated: api-contract.md (Branches and rates, Redirect).
 confirmed by NCM. `Returned to Warehouse` is a real order status: every parcel
 on the first page of `/order/redirectable` had it as `last_delivery_status`.
 That it is the status behind the `returned_to_warehouse` event is [inferred].
-Still open: what it means, and whether `Delivery Attempted`, `Out for
-Delivery` and `Dispatched to <BRANCH>` are real.
+
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. `Dispatched to <BRANCH>` and `Arrived at <BRANCH>` are real: the
+status-history API sends them, often, while webhooks say `Dispatched` and
+`Arrived`. `<BRANCH>` can be a return branch, such as `RETURN ( TINKUNE)`.
+`Out for Delivery` and `Delivery Attempted` never came in four and a half
+months. `Returned to Warehouse` is in the status history from late July. Still
+open: what `Returned to Warehouse` and the `returned_to_warehouse` event mean.
 Updated: webhooks-and-statuses.md (Status vocabulary, Mapping template),
 api-contract.md (Undocumented endpoints).
 
@@ -1434,7 +1541,27 @@ confirmed by NCM. Rate branch names appear to be matched case-insensitively:
 `Tinkune`/`Pokhara` gave the same charge as `TINKUNE`/`POKHARA` (lowercase
 wasn't tried). Still open: `Logistics` branches, `surcharge`, whether a real
 rate can be `"0"`, and whether the branch list keeps answering without a token.
+
+2026-11-16, reported from one platform's data; not confirmed by NCM. Of the
+649 branches, 400 are `Logistics` (two with a negative surcharge) and 249 are
+`Branch`. None of that platform's shops picks up from a `Logistics` branch. Its
+branch sync has always run without a token.
 Updated: api-contract.md (Branches and rates).
+
+#### 26. Comment ids
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. For every comment received both by webhook and from the API (thousands),
+the API's `pk` equalled the webhook's `comment_id`. The two timestamps were
+never identical, but almost always within a second.
+Updated: api-contract.md (Comments), webhooks-and-statuses.md (Events),
+checklists.md, production-lessons.md (#26).
+
+#### 27. vendor_return and money types
+2026-11-16, reported from one platform's production data; not confirmed by
+NCM. `vendor_return` was a string in every status-history row, `"False"` or
+`"True"`, never a boolean, and returned parcels read `"True"`. Still open: NCM's
+confirmation, and whether money fields keep their types.
+Updated: api-contract.md (Order detail).
 
 Format for an answer NCM gives:
 

@@ -12,6 +12,7 @@ documents.
 - *NCM Webhook Integration Documentation*, version 1.1, "Last updated: September 2026", status "Beta (subject to changes)". Called **Webhook doc**. Its contract is in [webhooks-and-statuses.md](webhooks-and-statuses.md). It is the current webhook document, unchanged since the previous edition of this skill; its version number is its own and unrelated to the API doc's.
 - *NCM API Documentation* (PDF, file name dated `251222`, 18 pages), the API document v2 replaces. Called **v1 doc**. The API doc restates every v1 endpoint with identical text, except the rows marked breaking in [Changes from the v1 doc](#changes-from-the-v1-doc).
 - **Live read-only calls**, 2026-11-16: 26 calls to `https://portal.nepalcanmove.com` with one vendor's production token (24 GETs and two read-only POSTs, bulk status and bulk labels), at most one every 2.5 s. Only response shapes and header names were recorded: key names, value types and counts, plus enum-like values and amounts. Nothing was created or changed: no order, comment, ticket, return, exchange, redirect or webhook call was made. Endpoints #7, #8, #10–#12, #14–#17, #19–#21, #23 and #24 weren't called; the undocumented `/order/redirectable` was. Results are labelled **[observed 2026-11-16]**; every example built from them uses invented values.
+- **Production data check**, 2026-11-16: the reference integration's team queried its own production database read-only, with every transaction rolled back. It covered several thousand parcels from a multi-shop platform: NCM status history from late June to mid-November 2026, and every webhook received from mid-July to mid-November. Its findings are labelled **[reported]**, like the team's earlier production checks; NCM hasn't confirmed them.
 
 **Labels used**
 
@@ -237,6 +238,12 @@ or is checked for duplicates, whether `fbranch` must be one of the account's
 assigned pickup branches (#18), and how to mark a parcel fragile or valuable
 (the label reports a `handling` value, but create has no field for it).
 
+What one platform's production data shows [reported]:
+
+- **`vref_id` isn't checked for duplicates.** Dozens of `vref_id` values were each sent by two or more shops on one account, and NCM created every parcel. Make your references unique per account yourself; NCM won't catch a repeat.
+- **`cod_charge: "0"` is accepted.** Parcels created with COD 0 were delivered. What the rider then collects is [unknown].
+- **`fbranch` needn't be an assigned pickup branch.** That platform's parcels usually name an `fbranch` that isn't one, and the creates succeed. What NCM uses `fbranch` for is [unknown].
+
 Synthetic request:
 
 ```json
@@ -309,7 +316,7 @@ fields and six more [observed 2026-11-16]. Invented values, observed shape:
 
 - Money is a decimal **string** [doc], with two decimals [observed 2026-11-16]. Parse it as a decimal, never as a float.
 - `payment_status` was `"Delivery Pending"` on that undelivered parcel [observed 2026-11-16]; the doc shows `"Completed"`. The full list, and what `"Completed"` means (cash collected from the customer, or paid out to the vendor), are **not documented** [unknown]. Don't read either as "the vendor has been paid".
-- **`vendor_return` is a string**: `"False"` in the observed response [observed 2026-11-16]. A non-empty string is truthy in most languages, so `if detail["vendor_return"]` takes `"False"` for a return. Only `"False"` was seen, so the form a returned parcel takes is [unknown]; `"True"` is likely [inferred]. Read `"true"` in any case, or a boolean `true`, as true (the return endpoint's documented response uses a boolean [doc]); read `"false"` in any case, or `false`, as false; flag any other value for a person rather than guessing. One integration's production data holds NCM's `vendor_return` answers for many parcels [reported], and its return handling depends on them. How its parser converts the string isn't recorded here [unknown]; check how yours does.
+- **`vendor_return` is a string**: `"False"` in the observed response [observed 2026-11-16]. A non-empty string is truthy in most languages, so `if detail["vendor_return"]` takes `"False"` for a return. One platform's production data had it as a string in every status-history row, `"False"` or `"True"`, never a boolean; returned parcels read `"True"` [reported]. Read `"true"` in any case, or a boolean `true`, as true (the return endpoint's documented response uses a boolean [doc]); read `"false"` in any case, or `false`, as false; flag any other value for a person rather than guessing. One integration's production data holds NCM's `vendor_return` answers for many parcels [reported], and its return handling depends on them. How its parser converts the string isn't recorded here [unknown]; check how yours does.
 - `trackid` (a string), `active` (a boolean) and `delivered_date` (`null` before delivery) are present too [observed 2026-11-16]. That integration's parser reads them [observed]. `destination_branch_name` and `destination_branch_phone` are new. None of these six fields is documented; confirm with NCM before depending on one.
 
 ### Status history and bulk status
@@ -340,6 +347,7 @@ fields and six more [observed 2026-11-16]. Invented values, observed shape:
 - Ids go in as integers and come back as **string keys** [doc], while `errors` holds integers [observed 2026-11-16]. Normalise both to one type before you check which of the ids you sent were answered; otherwise every id looks unanswered, or every error is missed.
 - `errors` lists ids NCM could not answer for. An id that doesn't exist lands there as an integer, while a known id in the same call is answered in `result` [observed 2026-11-16]. Other causes of an error entry are [unknown].
   - [observed] One integration found most of its long-stuck parcels listed here, while control parcels on the same token answered normally.
+  - [reported] Parcels still at `Sent for Pickup` land here: on one day, nearly all of one platform's parcels at that status were listed under `errors`. Don't read an error entry as "lost"; check the parcel's status history.
   - [reported] Ids created under another account's token went unanswered in one production check, so group ids by the token that created them.
 - Maximum batch size: [unknown]. One integration uses 100.
 - Whether a bulk call counts as one read or one per id against the 20,000 daily reads: [unknown].
@@ -352,14 +360,18 @@ fields and six more [observed 2026-11-16]. Invented values, observed shape:
 [{"orderid": 1001, "comments": "Customer not reachable", "addedBy": "NCM Staff", "added_time": "2026-01-02T16:43:15.687200+05:45"}]
 ```
 
-`addedBy` values seen in the doc: `"NCM Staff"`, `"Vendor"`. Comment ids are **not** in the documented response [doc]; one integration's code notes that the comment list "has not always included comment_id" and reads it when present [observed]. Live, every row from both comment endpoints (#4, #5) carried `pk`, an integer [observed 2026-11-16], most likely the comment's id [inferred]. Whether it equals a webhook's `comment_id` is [unknown].
+`addedBy` values seen in the doc: `"NCM Staff"`, `"Vendor"`. Comment ids are **not** in the documented response [doc]; one integration's code notes that the comment list "has not always included comment_id" and reads it when present [observed]. Live, every row from both comment endpoints (#4, #5) carried `pk`, an integer [observed 2026-11-16]. It is the comment's id: for every one of thousands of comments one platform received both ways, the API's `pk` equalled the webhook's `comment_id` (a digit string there) [reported].
 
-De-duplicate on (account, NCM order id, comment id) when one is present,
-taking `pk` from API rows, else on (account, NCM order id, text, `addedBy`,
-`added_time`). Until NCM confirms that `pk` and a webhook's `comment_id` are
-the same id, match comments across the two channels on text, `addedBy` and time
-as well. Your own comments come back with `addedBy: "Vendor"`; match them to the
-local comment by text within a few minutes rather than storing them twice.
+De-duplicate on (account, NCM order id, comment id), taking `pk` from API rows
+and `comment_id` from webhooks, compared as the same type. Fall back to text
+and time only when neither id is present, and then match the time **within a
+tolerance**: the API's `added_time` and the webhook's `timestamp` for one
+comment were never identical, though almost always within a second [reported].
+Webhooks carry no author field, so don't key on `addedBy` across channels.
+Reading `comment_id` from API rows, which have only `pk`, stored every NCM
+comment twice in one integration ([production-lessons.md](production-lessons.md#behaviour-not-to-copy)).
+Your own comments come back with `addedBy: "Vendor"`; match them to the local
+comment by text within a few minutes rather than storing them twice.
 
 `GET /api/v1/order/getbulkcomments` returns the last 25 comments across the account's orders, "latest comments ... at the top" [doc]; it returned 25 rows [observed 2026-11-16]. The doc's own example is not strictly newest first, so sort locally. With only 25 rows, a busy account can lose comments between polls; use it as a supplement, not the only feed.
 
@@ -425,7 +437,7 @@ how a transfer is reported back, is [unknown].
 }
 ```
 
-- `status` is a boolean, and the doc doesn't say which value means open. The example pairs `false` with `closed_on: null`, so `false` is probably open [inferred]. Read `closed_on` too, and confirm with NCM.
+- `status` is a boolean, and the doc doesn't say which value means open. The example pairs `false` with `closed_on: null`, so `false` is probably open [inferred]. The one closed ticket a platform had stored read `status: true` [reported], which fits. Read `closed_on` too, and confirm with NCM.
 - `message` holds `<br>` line breaks, and the doc's example ends with an "Actual Pickup count" line the vendor didn't write [doc]. Turn the `<br>` into line breaks and escape the rest before display; never render it as HTML.
 - In the doc's example the braces put `responses` beside `ticket`, at the top level, while the indentation suggests it sits inside `ticket` [doc]. Read it from either place.
 - The shape of the "forbidden" answer is [unknown].
