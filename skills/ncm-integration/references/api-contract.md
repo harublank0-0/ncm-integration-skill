@@ -11,7 +11,7 @@ documents.
 - *NCM API Documentation*, version 2 (PDF file name `NCM API DOC V2.pdf`, 32 pages, created 2026-06-21; the document itself carries no version number or date). Called **API doc** below. "v2" is the document's version, not a path prefix: create, detail, status, comments and rates are still under `/api/v1/`.
 - *NCM Webhook Integration Documentation*, version 1.1, "Last updated: September 2026", status "Beta (subject to changes)". Called **Webhook doc**. Its contract is in [webhooks-and-statuses.md](webhooks-and-statuses.md). It is the current webhook document, unchanged since the previous edition of this skill; its version number is its own and unrelated to the API doc's.
 - *NCM API Documentation* (PDF, file name dated `251222`, 18 pages), the API document v2 replaces. Called **v1 doc**. The API doc restates every v1 endpoint with identical text, except the rows marked breaking in [Changes from the v1 doc](#changes-from-the-v1-doc).
-- **Live read-only calls**, 2026-11-16: 23 calls to `https://portal.nepalcanmove.com` with one vendor's production token (22 GETs and the read-only bulk-status POST), at most one every 2.5 s. Only response shapes were recorded: key names, value types and counts, plus enum-like values and amounts. Nothing was created or changed: no order, comment, ticket, return, exchange, redirect or webhook call was made. Endpoints #7, #8, #10–#12, #14–#17, #19–#21, #23, #24 and #26 weren't called. Results are labelled **[observed 2026-11-16]**; every example built from them uses invented values.
+- **Live read-only calls**, 2026-11-16: 26 calls to `https://portal.nepalcanmove.com` with one vendor's production token (24 GETs and two read-only POSTs, bulk status and bulk labels), at most one every 2.5 s. Only response shapes and header names were recorded: key names, value types and counts, plus enum-like values and amounts. Nothing was created or changed: no order, comment, ticket, return, exchange, redirect or webhook call was made. Endpoints #7, #8, #10–#12, #14–#17, #19–#21, #23 and #24 weren't called; the undocumented `/order/redirectable` was. Results are labelled **[observed 2026-11-16]**; every example built from them uses invented values.
 
 **Labels used**
 
@@ -53,7 +53,7 @@ still [unknown].
 | Auth | Header `Authorization: Token <api-token>` [doc]. "Every vendor is provided with an API Token Key"; a new or forgotten token comes from NCM's IT admin [doc]. |
 | Token scope | One token per vendor (merchant) account [doc]. The integration's code assumes order ids are per-account sequences and that one account's token can't read another's orders [observed]; in one production check the platform token answered for none of 168 ids created under shops' own tokens [reported]. The label endpoints, new in v2, say "only the authenticated vendor's own orders", and the return endpoint (unchanged from the v1 doc) says "Only the vendor who owns the order" [doc]; the order reads say nothing either way. |
 | Content type | `Content-Type: application/json` on POST examples [doc]. |
-| Daily limits | "Order Creation : 1,000 per day"; "Order View (Detail, Comments, Status ): 20,000 per day" [doc]. Whether the limit is per token, when it resets, what the response is when exceeded, and whether bulk status, labels, customers, ratings and tickets count against the 20,000: [unknown]. The v1 doc's 200 and 5,000 are superseded [v1 doc]. |
+| Daily limits | "Order Creation : 1,000 per day"; "Order View (Detail, Comments, Status ): 20,000 per day" [doc]. Normal responses carry no rate-limit headers: no `X-RateLimit-*`, no `Retry-After` [observed 2026-11-16]. You can't read the remaining budget from NCM, so count your own calls. Whether the limit is per token, when it resets, what the response is when exceeded, and whether bulk status, labels, customers, ratings and tickets count against the 20,000: [unknown]. The v1 doc's 200 and 5,000 are superseded [v1 doc]. |
 | Conduct | "Avoid duplication of order creation from both bulk file upload and api system." "No Spamming or running scripts to overload the server." [doc] |
 | Versioning | Paths mix `/api/v1/`, `/api/v1/vendor/`, `/api/v2/` and `/api/v2/vendor/` [doc]; the version belongs to each path, not to the document. Ticket replies are under `/api/v1/vendor/tickets/` (plural) while create and close are under `/api/v2/vendor/ticket/` (singular). No deprecation policy is documented, and the v1 doc's ticket path vanished without a note [unknown]. |
 | Pagination | `count`, `next`, `previous`, `results` for the staff list (default 20 per page) and the customer list (default 25, maximum 100) [doc]; both answered in that envelope, with `next` a string and `previous` `null` on the first page [observed 2026-11-16]. The branch list isn't paged: it returned one bare JSON array of every branch, 649 entries and about 240 KB [observed 2026-11-16]. |
@@ -134,7 +134,7 @@ Every endpoint takes `Authorization: Token <api-token>` unless the row says othe
 | 23 | One customer with order history | `GET /api/v2/vendor/customers/<customer_id>/detail` | customer id in the path | `{"id", "name", "phone", "email", "orders": [{"orderid", "created_date", "cod_charge", "delivery_charge", "last_delivery_status"}]}` |
 | 24 | A phone's delivery record across NCM | `GET /api/v2/vendor/ratings?phone=<phone>` | `phone` required | `{"phone", "total_orders", "total_delivered", "total_returned"}` |
 | 25 | Label data for one order | `GET /api/v2/vendor/order/label/<order_id>` | order id in the path; own orders only | a label object, see [Label data](#label-data). Live: the documented keys, but `cod_charge` is a JSON **number** [observed 2026-11-16]. |
-| 26 | Label data for many orders | `POST /api/v2/vendor/order/label/` (trailing slash as documented) | `{"ids": [<int>, ...]}`, non-empty | `200 {"labels": [<label>, ...], "not_found": [<id>, ...]}` |
+| 26 | Label data for many orders | `POST /api/v2/vendor/order/label/` (trailing slash as documented) | `{"ids": [<int>, ...]}`, non-empty | `200 {"labels": [<label>, ...], "not_found": [<id>, ...]}`. Live: as documented; an id that doesn't exist is listed in `not_found` as an integer, and labels carry `cod_charge` as a JSON number [observed 2026-11-16]. |
 
 Not offered by the documents: cancelling an order, creating an order on hold, a
 dedicated pickup-request endpoint (a `Pickup` ticket stands in), a COD
@@ -209,7 +209,7 @@ paging and no envelope [observed 2026-11-16]. Invented values, observed shape:
 - Only branch **names** work. A branch's `code` or `pk`, or a name NCM doesn't know, gets HTTP `200` with an HTML page titled "Sorry, Something went wrong".
 - An unknown `type` gets `200 {"charge": "0"}`, with no decimals.
 - Before using a quote, check that the body is JSON and that `charge` isn't `"0"`. Whether a real charge can ever be `"0"` is [unknown].
-- Whether names are matched case-sensitively wasn't tested [unknown]; send the capitals the doc uses.
+- Names appear to be matched case-insensitively: `Tinkune` and `Pokhara` gave the same charge as `TINKUNE` and `POKHARA` [observed 2026-11-16]. Only title case was tried; send the capitals the doc uses anyway.
 
 ### Create an order
 
@@ -538,7 +538,7 @@ has agreed, and never log names, phones, emails or addresses.
 - [observed 2026-11-16] One production label had exactly the documented keys, but its `cod_charge` was a JSON **number**, not a decimal string like the order detail's. Parse both forms to the same decimal, without passing through a float (see Money in [Basics](#basics)). Its `delivery_type` was `Home`, and its `phone2` fields were `""`.
 - `delivery_type` is `Office` for D2B and B2B orders and `Home` for the rest ([Delivery types](#delivery-types)).
 - `from` holds the vendor for vendor orders, or the sending customer otherwise. Which orders aren't vendor orders is [unknown].
-- `description` fields are `null` when the order has no description. Whether the whole `description` object can be `null` is [unknown]; handle both.
+- `description` fields are `null` when the order has no description. Whether the whole `description` object can be `null` is [unknown]; handle both. [observed 2026-11-16] A bulk label came back with the `description` object present, its `description`, `delivery_instruction` and `vendor_orderid` all `null`, and `handling` still set.
 - `handling` is `Fragile`, `Fragile and Valuable`, `Valuable` or `Non-Fragile`.
 - `labels` can come back in any order: match on `orderid`. Ids that don't exist **and ids that belong to another vendor** both land in `not_found`, indistinguishably [doc].
 - NCM recommends 100 ids or fewer per request; no hard limit is stated [doc].
@@ -554,12 +554,21 @@ has agreed, and never log names, phones, emails or addresses.
 |---|---|---|
 | `GET /api/v2/vendor/order/redirectable` | which of the account's orders may be redirected now | paginated `{count, next, previous, results: [{orderid, branch, last_delivery_status}]}`, following `next` |
 
+[observed 2026-11-16] The endpoint exists on production and returns that shape:
+`200 {"count": <int>, "next": <string>, "previous": null, "results": [...]}`,
+10 items to a page by default, each `{"orderid": <int>, "branch": <string>,
+"last_delivery_status": <string>}`. Every parcel on the first page read
+`Returned to Warehouse`, a status the documents never name (see
+[webhooks-and-statuses.md](webhooks-and-statuses.md#status-vocabulary)). That
+redirectable parcels are the ones back at NCM's warehouse is [inferred] from one
+page. It is still undocumented: NCM can change or remove it.
+
 Two endpoints that integration called without documentation are now in the API
 doc: rating stats (#24), whose documented shape matches what it assumed, and
 ticket detail (#20), where it parsed a status loosely from `status`,
 `ticket_status` or similar, and the doc puts a boolean at `ticket.status`.
 
-The same integration retries an order-detail read when the error text matches "expected available in N seconds", which is Django REST framework's throttling wording [observed]. Whether NCM sends it, and with which HTTP status, is [unknown].
+The same integration retries an order-detail read when the error text matches "expected available in N seconds", which is Django REST framework's throttling wording [observed]. Whether NCM sends it, and with which HTTP status, is [unknown]. Production responses carry an `Allow` header, which Django REST framework's views send [observed 2026-11-16], so DRF's throttling answer (`429` with that wording and a `Retry-After` header) is plausible [inferred]. Handle a `429` and that text both.
 
 ## What to ask NCM before go-live
 

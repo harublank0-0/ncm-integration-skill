@@ -14,13 +14,13 @@ under `skills/ncm-integration/references/` and `docs/src/intro.md`, then run
 | NCM webhook doc | *NCM Webhook Integration Documentation* v1.1, "Last updated: September 2026", "Beta (subject to changes)". Current, and unchanged since this reference's previous edition |
 | NCM API doc v1 | *NCM API Documentation* PDF, file name dated `251222`, 18 pages. Superseded by v2 |
 | A production integration | One multi-vendor platform's NCM integration, read in late 2026 and built against the v1 API doc: its code, and its team's production checks |
-| Live read-only calls | 23 read-only calls to NCM's production API (`https://portal.nepalcanmove.com`) on 2026-11-16 with one vendor's production token. Only response shapes were recorded; nothing was created or changed |
+| Live read-only calls | 26 read-only calls to NCM's production API (`https://portal.nepalcanmove.com`) on 2026-11-16 with one vendor's production token. Only response shapes were recorded; nothing was created or changed |
 
 None of the PDFs is included here; ask NCM for current copies. Only the
 read-only calls above were checked against NCM's live API. Everything they
 didn't cover is untested: create, comments posted, tickets, returns,
 exchanges, redirects, webhooks and limits, and the reads customer detail,
-rating stats, ticket detail and bulk labels. Test anything that creates or
+rating stats and ticket detail. Test anything that creates or
 changes data with a demo token on the demo host.
 
 | Label | Meaning |
@@ -70,7 +70,7 @@ unchanged, and its path with it.
 | Customers; customer detail; rating stats | `GET /api/v2/vendor/customers`, `…/customers/<id>/detail`; `GET /api/v2/vendor/ratings?phone=` | yes, new in v2 | ratings yes (before it was documented); customers no |
 | Label data, one or many | `GET /api/v2/vendor/order/label/<id>`; `POST /api/v2/vendor/order/label/` | yes, new in v2 | no |
 | `comment_added` webhook | none | no (v2 mentions "comment events" without a payload) | yes |
-| Redirectable list | `GET /api/v2/vendor/order/redirectable` | no | yes |
+| Redirectable list | `GET /api/v2/vendor/order/redirectable` | no (but observed live) | yes |
 | Cancel or hold an order | none | **not offered** | posts a comment instead |
 
 ## Recommended event flow [recommended]
