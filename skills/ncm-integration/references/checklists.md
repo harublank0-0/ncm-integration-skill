@@ -127,8 +127,8 @@ Use synthetic ids, names and phones only.
 
 **State protection**
 - [ ] A cancelled order receives `pickup_completed` → the order stays cancelled; staff are alerted.
-- [ ] A return (`rtv_delivery`, or `vendor_return: true` with `Delivered`) never produces a "delivered" message to the customer, and follows the return decision (D4).
-- [ ] `vendor_return` turns true days after a normal delivery → handled as "return after delivered" (D4).
+- [ ] A return (`rtv_delivery`, or `vendor_return` reading true with `Delivered`) never produces a "delivered" message to the customer, and follows the return decision (D4).
+- [ ] `vendor_return` turns true days after a normal delivery → handled as "return after delivered" (D4). The fixture sends it as a string (`"False"`, then `"True"`), as production does.
 - [ ] `refund_initiated` → two child shipments; their later events never move the original order.
 - [ ] A forged webhook with a valid-looking body but a wrong secret → rejected; a return or refund event is confirmed with an API read before stock or money moves.
 - [ ] An unknown event and an unknown status → recorded, answered 2xx, order unchanged, alert raised.

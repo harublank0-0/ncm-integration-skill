@@ -5,6 +5,7 @@ Labels:
 - **[v1 doc]** only in the superseded API doc dated `251222`.
 - **[inferred]** follows from the documents without being stated in them.
 - **[observed]** seen in one production integration's code, not in NCM's documents. Code shows what the integration *handles*, not what NCM *sends*; confirm with NCM.
+- **[observed 2026-11-16]** returned by NCM's production API to a read-only call on that date; not confirmed by NCM (see [api-contract.md](api-contract.md)).
 - **[reported]** that integration's team reports it from production checks; it is not visible in its code.
 - **[recommended]** a design rule for your project.
 - **[unknown]** not settled by any source.
@@ -172,6 +173,12 @@ A **return** is a fifth concern. NCM ends a return-to-vendor as `Delivered`;
 only the order detail's `vendor_return` flag [observed] or the RTV events
 (`order_marked_rtv`, `send_to_vendor`, `rtv_delivery`) [doc] tell it apart.
 
+`vendor_return` arrives as a **string**: `"False"` on production
+[observed 2026-11-16]. `"False"` is truthy in most languages, so never test it
+as a boolean. Wherever this file says `vendor_return` "is true" or "turns
+true", read it with the parsing rule in
+[api-contract.md](api-contract.md#order-detail).
+
 ## Mapping template [recommended]
 
 Fill this in **with the user** for the destination project. Every row needs an
@@ -199,8 +206,8 @@ explicit decision; "copy NCM's string onto the order" is not one.
 
 If your own system calls `POST /api/v2/vendor/order/return`, record that you
 did. That call sets the order's `vendor_return` flag to `true` [doc], which the
-order detail then shows [observed], and your post-delivery check must not take
-it for a return NCM started.
+order detail then shows [observed], probably as the string `"True"` [inferred],
+and your post-delivery check must not take it for a return NCM started.
 
 No cancel endpoint is documented [doc]. If an order is cancelled locally after
 the parcel exists:
@@ -260,10 +267,11 @@ the parcel exists:
 9. **Treat `Delivered` carefully.** Before you mark the order delivered or text
    the customer, check for a return: the parcel's stage (rule 6), an RTV event
    on record, or the order detail's `vendor_return` [observed] read at that
-   moment. If that read fails, don't send the delivered message: retry the
-   read, or hold the delivered transition for a person. A return you requested
-   yourself (`POST /api/v2/vendor/order/return`) must be on record, so its
-   `vendor_return: true` isn't taken for a return NCM started.
+   moment, parsed from its string form (`"False"` [observed 2026-11-16]). If
+   that read fails, don't send the delivered message: retry the read, or hold
+   the delivered transition for a person. A return you requested yourself
+   (`POST /api/v2/vendor/order/return`) must be on record, so its
+   `vendor_return` reading true isn't taken for a return NCM started.
 10. **Confirm high-impact events with an API read.** A webhook carries no
     signature [doc], so read `GET /api/v1/order/status?id=` or the order detail
     before restocking, refunding, or changing money owed.
