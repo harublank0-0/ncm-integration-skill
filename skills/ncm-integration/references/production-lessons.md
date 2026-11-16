@@ -22,7 +22,7 @@ API doc v2 changes about it is listed under
 | **Per-account webhook secrets** | The platform account has one secret; each vendor with its own NCM account gets a random token in its webhook URL. The token decides which account's parcels an event may touch. |
 | **Account-scoped matching** | Ids are matched only among that account's shipments. The integration's code treats NCM ids as per-account sequences, so the same id can exist under two accounts. Not documented by NCM. |
 | **Bulk-then-detail reconcile** | Every 3 hours: stale, unfinished parcels, grouped per account token, checked with `POST /api/v1/orders/statuses` in batches of 100. Only drifted ones fetch full history and are healed through the webhook's code path. An in-sync fleet costs a few calls. |
-| **Post-delivery return sweep** | Recently delivered parcels are re-read from the order detail, because `vendor_return` can flip to true after `Delivered`. |
+| **Post-delivery return sweep** | Recently delivered parcels are re-read from the order detail, because `vendor_return` can flip to true after `Delivered`. It arrives as a string (`"False"` on production, [observed 2026-11-16]); parse it as in [api-contract.md](api-contract.md#order-detail), never as a truthy value. |
 | **History backfill with real times** | A poll inserts the missing status-history rows with NCM's own `added_time`, de-duplicated against webhook rows within 5 minutes, because webhook and API times differ. |
 | **Manual refresh per order** | Support staff can pull one parcel's history on demand. |
 | **Outbound comments through a queue** | Saved locally as `queued`, sent by a worker, marked `sent`, `retrying` or `failed`; a job already `sent` is never sent again. Copy the state machine, not the details: they serialized **all** vendors in one group (#19 below), and retried timeouts, which can post twice. |
@@ -99,7 +99,7 @@ Confirm them with NCM.
 
 - `comment_added` webhooks arrive and are handled in code. `returned_to_warehouse` arrives too (*reported*). The webhook doc lists neither.
 - NCM's portal has a separate "Order Comment Webhook URL", per the integration's own notes. API doc v2 mentions "comment events" on its webhook endpoint but documents no comment URL parameter.
-- The order detail carries `vendor_return`, `delivered_date`, `active` and a tracking id.
+- The order detail carries `vendor_return`, `delivered_date`, `active` and a tracking id. A read-only check of production on 2026-11-16 confirmed all four, with `vendor_return` as the string `"False"` (see [api-contract.md](api-contract.md#order-detail)).
 - Its status map expects branch names embedded in statuses (`Dispatched to <BRANCH>`, `Arrived at <BRANCH>`) and the strings `Delivery Attempted` and `Out for Delivery`. Whether NCM sends them wasn't verified from a captured response.
 - Webhook and API timestamps for the same transition differ; the integration treats rows within 5 minutes of each other as the same transition.
 - A bulk status call can put many ids under `errors` while control parcels on the same token answer normally (*reported*).

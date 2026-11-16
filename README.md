@@ -53,11 +53,15 @@ mentions NCM or Nepal Can Move.
   dated `251222`) needs two changes, both to tickets; see
   [Changes from the v1 doc](skills/ncm-integration/references/api-contract.md#changes-from-the-v1-doc).
   Guidance kept only from that older document is labelled `[v1 doc]`.
-- Nothing was checked against NCM's live API. Claims are labelled `[doc]`,
-  `[v1 doc]`, `[inferred]`, `[observed]`, `[reported]`, `[recommended]`,
-  `[unknown]` or `[NCM, date]`. Confirm anything labelled `[inferred]`,
-  `[observed]`, `[reported]` or `[unknown]` with NCM or a demo token before
-  depending on it; `[v1 doc]` is superseded and only helps recognise old code.
+- Only read-only calls were checked against NCM's live production API, on
+  2026-11-16, recording response shapes; nothing was created or changed.
+  Claims are labelled `[doc]`, `[v1 doc]`, `[inferred]`, `[observed]`,
+  `[observed 2026-11-16]`, `[reported]`, `[recommended]`, `[unknown]` or
+  `[NCM, date]`. Confirm anything labelled `[inferred]`, `[observed]`,
+  `[observed 2026-11-16]`, `[reported]` or `[unknown]` with NCM before
+  depending on it, and test anything that creates or changes data with a demo
+  token on the demo host; `[v1 doc]` is superseded and only helps recognise old
+  code.
 - Not affiliated with Nepal Can Move.
 
 ## Open questions for NCM
