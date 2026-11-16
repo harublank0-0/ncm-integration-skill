@@ -14,6 +14,7 @@ under `skills/ncm-integration/references/` and `docs/src/intro.md`, then run
 | NCM webhook doc | *NCM Webhook Integration Documentation* v1.1, "Last updated: September 2026", "Beta (subject to changes)". Current, and unchanged since this reference's previous edition |
 | NCM API doc v1 | *NCM API Documentation* PDF, file name dated `251222`, 18 pages. Superseded by v2 |
 | A production integration | One multi-vendor platform's NCM integration, read in late 2026 and built against the v1 API doc: its code, and its team's production checks |
+| Production data check | On 2026-11-16 the production integration's team queried its own production data read-only: several thousand parcels' status history (late June to mid-November 2026) and every webhook received (mid-July to mid-November). Findings are labelled [reported] |
 | Live read-only calls | 26 read-only calls to NCM's production API (`https://portal.nepalcanmove.com`) on 2026-11-16 with one vendor's production token. Only response shapes were recorded; nothing was created or changed |
 
 None of the PDFs is included here; ask NCM for current copies. Only the
@@ -116,7 +117,7 @@ sequenceDiagram
 | 7 | Timestamps | Webhooks are UTC; the status, ticket and customer APIs and both test payloads use `+05:45` |
 | 8 | Bulk comments | Said to be newest first; the doc's own example isn't sorted |
 | 9 | Pickup statuses | `Pickup Order Created` and `Sent for Pickup` appear in API examples but have no webhook event |
-| 10 | Undocumented events | `comment_added` [observed] and `returned_to_warehouse` [reported] arrive but aren't listed |
+| 10 | Undocumented events | `comment_added`, `returned_to_warehouse` and `exchange_initiated` arrive but aren't listed, and documented events carry unlisted fields [reported] |
 | 11 | Redirect destination | Takes a branch **id**; create takes branch **names**; assigned branches return names and labels return a name and a `code`; no documented source of branch ids. The branch list carries a `pk` [observed 2026-11-16] |
 | 12 | Branch-name case | Rates, create and assigned branches use capitals (`TINKUNE`, `KATHMANDU`); the pickup-ticket example sends `Tinkune` |
 | 13 | Ticket paths | Create and close are under `/api/v2/vendor/ticket/`; detail is under `/api/v1/tickets/` and replies under `/api/v1/vendor/tickets/`. The v1 create path was dropped without a note |
