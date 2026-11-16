@@ -44,19 +44,19 @@ Statuses: `Open` (not asked yet), `Asked` (sent to NCM, no answer), `Answered`,
 | 17 | Webhooks | How to rotate a webhook secret without losing events: whether a new `webhook_url` takes effect at once, and whether the old one keeps receiving in-flight events. | Open |
 | 18 | COD | Whether `cod_charge: "0"` is accepted for a prepaid order, and what the rider then collects. | Open |
 | 19 | Branches | Where branch ids come from, since the redirect's `destination` needs one, and whether the label's branch `code` is accepted anywhere. | Partly answered (observed) |
-| 20 | Status | Whether `Delivery Attempted`, `Out for Delivery` and `Dispatched to <BRANCH>` are real status strings, and what `returned_to_warehouse` means. | Open |
+| 20 | Status | Whether `Delivery Attempted`, `Out for Delivery` and `Dispatched to <BRANCH>` are real status strings, and what `returned_to_warehouse` means. | Partly answered (observed) |
 | 21 | Comments | Whether posting a comment or a ticket response is idempotent in any way, since a comment returns no id. | Open |
 | 22 | Customers | Whether customer detail's `orders` covers only your account, and the terms for using rating stats, which describe other vendors' orders. | Open |
 | 23 | Labels | What a barcode should encode, whether a printable label exists, how to set `handling` at create, and which orders have a non-vendor `from`. | Open |
 | 24 | Webhooks | Whether test webhooks carry the same headers as real ones. | Open |
-| 25 | Branches | Raised by the live checks: what `branch_type: "Logistics"` means and whether such a branch can be a pickup or destination branch; how a branch's `surcharge` (which can be negative) relates to the rate; whether rate branch names are matched case-sensitively; whether a real rate can be `"0"`, and why an unknown `type` returns `{"charge": "0"}` instead of an error; whether the branch list will keep answering without a token. | Open |
+| 25 | Branches | Raised by the live checks: what `branch_type: "Logistics"` means and whether such a branch can be a pickup or destination branch; how a branch's `surcharge` (which can be negative) relates to the rate; whether rate branch names are matched case-sensitively; whether a real rate can be `"0"`, and why an unknown `type` returns `{"charge": "0"}` instead of an error; whether the branch list will keep answering without a token. | Partly answered (observed) |
 | 26 | Comments | Raised by the live checks: whether the `pk` on API comment rows is the comment id, and whether it equals a webhook's `comment_id`. | Open |
 | 27 | Orders | Raised by the live checks: which values `vendor_return` takes (only the string `"False"` was seen; is a return `"True"`?), and whether money fields keep their types (decimal strings in the order detail and rates, a JSON number in the label's `cod_charge`). | Open |
 
 ## Answers
 
 Entries dated 2026-11-16 come from read-only calls to the production API with
-one vendor's production token (23 calls, shapes only; see the sources in
+one vendor's production token (26 calls, shapes only; see the sources in
 [api-contract.md](api-contract.md)). None is confirmed by NCM; ask NCM to
 confirm each before go-live.
 
@@ -98,10 +98,12 @@ confirmed by NCM. The production order detail carries `vendor_return` (the
 **string** `"False"`, not a boolean), `trackid` (a string), `active` (a
 boolean), `delivered_date` (`null` before delivery), and two more:
 `destination_branch_name` and `destination_branch_phone`. Each status-history
-row also carries `vendor_return`. Still open: whether vendors may rely on these
-fields, and `/order/redirectable`, which wasn't called.
+row also carries `vendor_return`. `GET /api/v2/vendor/order/redirectable`
+exists and returns the paged `{count, next, previous, results: [{orderid,
+branch, last_delivery_status}]}` the reference integration assumes, 10 to a
+page. Still open: whether vendors may rely on these fields and that endpoint.
 Updated: api-contract.md (endpoint catalog #3 and #6, Order detail, Status
-history and bulk status), SKILL.md.
+history and bulk status, Undocumented endpoints), SKILL.md.
 
 ### 19. Branch ids
 2026-11-16, observed with the production token via read-only calls; not
@@ -110,6 +112,24 @@ branch. The rate endpoint accepts neither: it takes names only. Still open:
 whether the redirect's `destination` takes the branch `pk` (redirect wasn't
 called), and whether the label's `code` is accepted anywhere.
 Updated: api-contract.md (Branches and rates, Redirect).
+
+### 20. Status strings
+2026-11-16, observed with the production token via read-only calls; not
+confirmed by NCM. `Returned to Warehouse` is a real order status: every parcel
+on the first page of `/order/redirectable` had it as `last_delivery_status`.
+That it is the status behind the `returned_to_warehouse` event is [inferred].
+Still open: what it means, and whether `Delivery Attempted`, `Out for
+Delivery` and `Dispatched to <BRANCH>` are real.
+Updated: webhooks-and-statuses.md (Status vocabulary, Mapping template),
+api-contract.md (Undocumented endpoints).
+
+### 25. Branches and rates
+2026-11-16, observed with the production token via read-only calls; not
+confirmed by NCM. Rate branch names appear to be matched case-insensitively:
+`Tinkune`/`Pokhara` gave the same charge as `TINKUNE`/`POKHARA` (lowercase
+wasn't tried). Still open: `Logistics` branches, `surcharge`, whether a real
+rate can be `"0"`, and whether the branch list keeps answering without a token.
+Updated: api-contract.md (Branches and rates).
 
 Format for an answer NCM gives:
 

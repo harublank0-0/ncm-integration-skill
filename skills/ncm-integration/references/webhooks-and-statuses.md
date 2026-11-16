@@ -154,7 +154,9 @@ are every string the sources show.
 | `In Transit` | test webhook payload only (webhook doc and API doc) [doc] | |
 | `Delivery Attempted` | one integration's status map [observed] | not in the documents; whether NCM sends it is unverified |
 | `returned_to_warehouse` (event) | [reported] | not in the documents; meaning [unknown] |
+| `Returned to Warehouse` (status) | `last_delivery_status` in the undocumented `/order/redirectable` list [observed 2026-11-16] | not in the documents. Every parcel on the list's first page had it. Probably the status behind the `returned_to_warehouse` event, and a parcel NCM holds that can be redirected [inferred]; meaning [unknown] |
 | `Completed` | `payment_status` in the order detail [doc] | a payment field, not a delivery status |
+| `Delivery Pending` | `payment_status` in the order detail [observed 2026-11-16] | on an undelivered parcel; a payment field, not a delivery status |
 
 [recommended] Match status strings case-insensitively after trimming and turning
 `_`/`-` into spaces; match `Dispatched to …` and `Arrived at …` by prefix; and
@@ -200,7 +202,7 @@ explicit decision; "copy NCM's string onto the order" is not one.
 | `send_to_vendor` | return in transit | | |
 | `rtv_delivery` | returned to vendor | e.g. → "Returned" | restock? (a business decision) |
 | `refund_initiated` | refund pending on the original; two **child shipments** (customer leg, refund leg) | the original order: refund pending; the legs' own events never move it | money moves back (who refunds a prepaid customer?); finance decision |
-| `returned_to_warehouse` [reported] | record the raw event; no stage | none until NCM explains it | staff alert |
+| `returned_to_warehouse` [reported], or `Returned to Warehouse` from a poll [observed 2026-11-16] | record the raw event or status; no stage | none until NCM explains it | staff alert |
 | `comment_added` [observed] | none | none | store the comment, notify staff |
 | unknown event | record it | none | alert; answer 2xx |
 

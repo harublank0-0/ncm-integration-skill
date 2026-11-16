@@ -14,13 +14,13 @@ under `skills/ncm-integration/references/` and `docs/src/intro.md`, then run
 | NCM webhook doc | *NCM Webhook Integration Documentation* v1.1, "Last updated: September 2026", "Beta (subject to changes)". Current, and unchanged since this reference's previous edition |
 | NCM API doc v1 | *NCM API Documentation* PDF, file name dated `251222`, 18 pages. Superseded by v2 |
 | A production integration | One multi-vendor platform's NCM integration, read in late 2026 and built against the v1 API doc: its code, and its team's production checks |
-| Live read-only calls | 23 read-only calls to NCM's production API (`https://portal.nepalcanmove.com`) on 2026-11-16 with one vendor's production token. Only response shapes were recorded; nothing was created or changed |
+| Live read-only calls | 26 read-only calls to NCM's production API (`https://portal.nepalcanmove.com`) on 2026-11-16 with one vendor's production token. Only response shapes were recorded; nothing was created or changed |
 
 None of the PDFs is included here; ask NCM for current copies. Only the
 read-only calls above were checked against NCM's live API. Everything they
 didn't cover is untested: create, comments posted, tickets, returns,
 exchanges, redirects, webhooks and limits, and the reads customer detail,
-rating stats, ticket detail and bulk labels. Test anything that creates or
+rating stats and ticket detail. Test anything that creates or
 changes data with a demo token on the demo host.
 
 | Label | Meaning |
@@ -70,7 +70,7 @@ unchanged, and its path with it.
 | Customers; customer detail; rating stats | `GET /api/v2/vendor/customers`, `…/customers/<id>/detail`; `GET /api/v2/vendor/ratings?phone=` | yes, new in v2 | ratings yes (before it was documented); customers no |
 | Label data, one or many | `GET /api/v2/vendor/order/label/<id>`; `POST /api/v2/vendor/order/label/` | yes, new in v2 | no |
 | `comment_added` webhook | none | no (v2 mentions "comment events" without a payload) | yes |
-| Redirectable list | `GET /api/v2/vendor/order/redirectable` | no | yes |
+| Redirectable list | `GET /api/v2/vendor/order/redirectable` | no (but observed live) | yes |
 | Cancel or hold an order | none | **not offered** | posts a comment instead |
 
 ## Recommended event flow [recommended]
@@ -139,7 +139,7 @@ documents.
 - *NCM API Documentation*, version 2 (PDF file name `NCM API DOC V2.pdf`, 32 pages, created 2026-06-21; the document itself carries no version number or date). Called **API doc** below. "v2" is the document's version, not a path prefix: create, detail, status, comments and rates are still under `/api/v1/`.
 - *NCM Webhook Integration Documentation*, version 1.1, "Last updated: September 2026", status "Beta (subject to changes)". Called **Webhook doc**. Its contract is in [webhooks-and-statuses.md](../skills/ncm-integration/references/webhooks-and-statuses.md). It is the current webhook document, unchanged since the previous edition of this skill; its version number is its own and unrelated to the API doc's.
 - *NCM API Documentation* (PDF, file name dated `251222`, 18 pages), the API document v2 replaces. Called **v1 doc**. The API doc restates every v1 endpoint with identical text, except the rows marked breaking in [Changes from the v1 doc](#changes-from-the-v1-doc).
-- **Live read-only calls**, 2026-11-16: 23 calls to `https://portal.nepalcanmove.com` with one vendor's production token (22 GETs and the read-only bulk-status POST), at most one every 2.5 s. Only response shapes were recorded: key names, value types and counts, plus enum-like values and amounts. Nothing was created or changed: no order, comment, ticket, return, exchange, redirect or webhook call was made. Endpoints #7, #8, #10–#12, #14–#17, #19–#21, #23, #24 and #26 weren't called. Results are labelled **[observed 2026-11-16]**; every example built from them uses invented values.
+- **Live read-only calls**, 2026-11-16: 26 calls to `https://portal.nepalcanmove.com` with one vendor's production token (24 GETs and two read-only POSTs, bulk status and bulk labels), at most one every 2.5 s. Only response shapes and header names were recorded: key names, value types and counts, plus enum-like values and amounts. Nothing was created or changed: no order, comment, ticket, return, exchange, redirect or webhook call was made. Endpoints #7, #8, #10–#12, #14–#17, #19–#21, #23 and #24 weren't called; the undocumented `/order/redirectable` was. Results are labelled **[observed 2026-11-16]**; every example built from them uses invented values.
 
 **Labels used**
 
@@ -181,7 +181,7 @@ still [unknown].
 | Auth | Header `Authorization: Token <api-token>` [doc]. "Every vendor is provided with an API Token Key"; a new or forgotten token comes from NCM's IT admin [doc]. |
 | Token scope | One token per vendor (merchant) account [doc]. The integration's code assumes order ids are per-account sequences and that one account's token can't read another's orders [observed]; in one production check the platform token answered for none of 168 ids created under shops' own tokens [reported]. The label endpoints, new in v2, say "only the authenticated vendor's own orders", and the return endpoint (unchanged from the v1 doc) says "Only the vendor who owns the order" [doc]; the order reads say nothing either way. |
 | Content type | `Content-Type: application/json` on POST examples [doc]. |
-| Daily limits | "Order Creation : 1,000 per day"; "Order View (Detail, Comments, Status ): 20,000 per day" [doc]. Whether the limit is per token, when it resets, what the response is when exceeded, and whether bulk status, labels, customers, ratings and tickets count against the 20,000: [unknown]. The v1 doc's 200 and 5,000 are superseded [v1 doc]. |
+| Daily limits | "Order Creation : 1,000 per day"; "Order View (Detail, Comments, Status ): 20,000 per day" [doc]. Normal responses carry no rate-limit headers: no `X-RateLimit-*`, no `Retry-After` [observed 2026-11-16]. You can't read the remaining budget from NCM, so count your own calls. Whether the limit is per token, when it resets, what the response is when exceeded, and whether bulk status, labels, customers, ratings and tickets count against the 20,000: [unknown]. The v1 doc's 200 and 5,000 are superseded [v1 doc]. |
 | Conduct | "Avoid duplication of order creation from both bulk file upload and api system." "No Spamming or running scripts to overload the server." [doc] |
 | Versioning | Paths mix `/api/v1/`, `/api/v1/vendor/`, `/api/v2/` and `/api/v2/vendor/` [doc]; the version belongs to each path, not to the document. Ticket replies are under `/api/v1/vendor/tickets/` (plural) while create and close are under `/api/v2/vendor/ticket/` (singular). No deprecation policy is documented, and the v1 doc's ticket path vanished without a note [unknown]. |
 | Pagination | `count`, `next`, `previous`, `results` for the staff list (default 20 per page) and the customer list (default 25, maximum 100) [doc]; both answered in that envelope, with `next` a string and `previous` `null` on the first page [observed 2026-11-16]. The branch list isn't paged: it returned one bare JSON array of every branch, 649 entries and about 240 KB [observed 2026-11-16]. |
@@ -262,7 +262,7 @@ Every endpoint takes `Authorization: Token <api-token>` unless the row says othe
 | 23 | One customer with order history | `GET /api/v2/vendor/customers/<customer_id>/detail` | customer id in the path | `{"id", "name", "phone", "email", "orders": [{"orderid", "created_date", "cod_charge", "delivery_charge", "last_delivery_status"}]}` |
 | 24 | A phone's delivery record across NCM | `GET /api/v2/vendor/ratings?phone=<phone>` | `phone` required | `{"phone", "total_orders", "total_delivered", "total_returned"}` |
 | 25 | Label data for one order | `GET /api/v2/vendor/order/label/<order_id>` | order id in the path; own orders only | a label object, see [Label data](#label-data). Live: the documented keys, but `cod_charge` is a JSON **number** [observed 2026-11-16]. |
-| 26 | Label data for many orders | `POST /api/v2/vendor/order/label/` (trailing slash as documented) | `{"ids": [<int>, ...]}`, non-empty | `200 {"labels": [<label>, ...], "not_found": [<id>, ...]}` |
+| 26 | Label data for many orders | `POST /api/v2/vendor/order/label/` (trailing slash as documented) | `{"ids": [<int>, ...]}`, non-empty | `200 {"labels": [<label>, ...], "not_found": [<id>, ...]}`. Live: as documented; an id that doesn't exist is listed in `not_found` as an integer, and labels carry `cod_charge` as a JSON number [observed 2026-11-16]. |
 
 Not offered by the documents: cancelling an order, creating an order on hold, a
 dedicated pickup-request endpoint (a `Pickup` ticket stands in), a COD
@@ -337,7 +337,7 @@ paging and no envelope [observed 2026-11-16]. Invented values, observed shape:
 - Only branch **names** work. A branch's `code` or `pk`, or a name NCM doesn't know, gets HTTP `200` with an HTML page titled "Sorry, Something went wrong".
 - An unknown `type` gets `200 {"charge": "0"}`, with no decimals.
 - Before using a quote, check that the body is JSON and that `charge` isn't `"0"`. Whether a real charge can ever be `"0"` is [unknown].
-- Whether names are matched case-sensitively wasn't tested [unknown]; send the capitals the doc uses.
+- Names appear to be matched case-insensitively: `Tinkune` and `Pokhara` gave the same charge as `TINKUNE` and `POKHARA` [observed 2026-11-16]. Only title case was tried; send the capitals the doc uses anyway.
 
 #### Create an order
 
@@ -666,7 +666,7 @@ has agreed, and never log names, phones, emails or addresses.
 - [observed 2026-11-16] One production label had exactly the documented keys, but its `cod_charge` was a JSON **number**, not a decimal string like the order detail's. Parse both forms to the same decimal, without passing through a float (see Money in [Basics](#basics)). Its `delivery_type` was `Home`, and its `phone2` fields were `""`.
 - `delivery_type` is `Office` for D2B and B2B orders and `Home` for the rest ([Delivery types](#delivery-types)).
 - `from` holds the vendor for vendor orders, or the sending customer otherwise. Which orders aren't vendor orders is [unknown].
-- `description` fields are `null` when the order has no description. Whether the whole `description` object can be `null` is [unknown]; handle both.
+- `description` fields are `null` when the order has no description. Whether the whole `description` object can be `null` is [unknown]; handle both. [observed 2026-11-16] A bulk label came back with the `description` object present, its `description`, `delivery_instruction` and `vendor_orderid` all `null`, and `handling` still set.
 - `handling` is `Fragile`, `Fragile and Valuable`, `Valuable` or `Non-Fragile`.
 - `labels` can come back in any order: match on `orderid`. Ids that don't exist **and ids that belong to another vendor** both land in `not_found`, indistinguishably [doc].
 - NCM recommends 100 ids or fewer per request; no hard limit is stated [doc].
@@ -682,12 +682,21 @@ has agreed, and never log names, phones, emails or addresses.
 |---|---|---|
 | `GET /api/v2/vendor/order/redirectable` | which of the account's orders may be redirected now | paginated `{count, next, previous, results: [{orderid, branch, last_delivery_status}]}`, following `next` |
 
+[observed 2026-11-16] The endpoint exists on production and returns that shape:
+`200 {"count": <int>, "next": <string>, "previous": null, "results": [...]}`,
+10 items to a page by default, each `{"orderid": <int>, "branch": <string>,
+"last_delivery_status": <string>}`. Every parcel on the first page read
+`Returned to Warehouse`, a status the documents never name (see
+[webhooks-and-statuses.md](../skills/ncm-integration/references/webhooks-and-statuses.md#status-vocabulary)). That
+redirectable parcels are the ones back at NCM's warehouse is [inferred] from one
+page. It is still undocumented: NCM can change or remove it.
+
 Two endpoints that integration called without documentation are now in the API
 doc: rating stats (#24), whose documented shape matches what it assumed, and
 ticket detail (#20), where it parsed a status loosely from `status`,
 `ticket_status` or similar, and the doc puts a boolean at `ticket.status`.
 
-The same integration retries an order-detail read when the error text matches "expected available in N seconds", which is Django REST framework's throttling wording [observed]. Whether NCM sends it, and with which HTTP status, is [unknown].
+The same integration retries an order-detail read when the error text matches "expected available in N seconds", which is Django REST framework's throttling wording [observed]. Whether NCM sends it, and with which HTTP status, is [unknown]. Production responses carry an `Allow` header, which Django REST framework's views send [observed 2026-11-16], so DRF's throttling answer (`429` with that wording and a `Retry-After` header) is plausible [inferred]. Handle a `429` and that text both.
 
 ### What to ask NCM before go-live
 
@@ -852,7 +861,9 @@ are every string the sources show.
 | `In Transit` | test webhook payload only (webhook doc and API doc) [doc] | |
 | `Delivery Attempted` | one integration's status map [observed] | not in the documents; whether NCM sends it is unverified |
 | `returned_to_warehouse` (event) | [reported] | not in the documents; meaning [unknown] |
+| `Returned to Warehouse` (status) | `last_delivery_status` in the undocumented `/order/redirectable` list [observed 2026-11-16] | not in the documents. Every parcel on the list's first page had it. Probably the status behind the `returned_to_warehouse` event, and a parcel NCM holds that can be redirected [inferred]; meaning [unknown] |
 | `Completed` | `payment_status` in the order detail [doc] | a payment field, not a delivery status |
+| `Delivery Pending` | `payment_status` in the order detail [observed 2026-11-16] | on an undelivered parcel; a payment field, not a delivery status |
 
 [recommended] Match status strings case-insensitively after trimming and turning
 `_`/`-` into spaces; match `Dispatched to …` and `Arrived at …` by prefix; and
@@ -898,7 +909,7 @@ explicit decision; "copy NCM's string onto the order" is not one.
 | `send_to_vendor` | return in transit | | |
 | `rtv_delivery` | returned to vendor | e.g. → "Returned" | restock? (a business decision) |
 | `refund_initiated` | refund pending on the original; two **child shipments** (customer leg, refund leg) | the original order: refund pending; the legs' own events never move it | money moves back (who refunds a prepaid customer?); finance decision |
-| `returned_to_warehouse` [reported] | record the raw event; no stage | none until NCM explains it | staff alert |
+| `returned_to_warehouse` [reported], or `Returned to Warehouse` from a poll [observed 2026-11-16] | record the raw event or status; no stage | none until NCM explains it | staff alert |
 | `comment_added` [observed] | none | none | store the comment, notify staff |
 | unknown event | record it | none | alert; answer 2xx |
 
@@ -1338,19 +1349,19 @@ Statuses: `Open` (not asked yet), `Asked` (sent to NCM, no answer), `Answered`,
 | 17 | Webhooks | How to rotate a webhook secret without losing events: whether a new `webhook_url` takes effect at once, and whether the old one keeps receiving in-flight events. | Open |
 | 18 | COD | Whether `cod_charge: "0"` is accepted for a prepaid order, and what the rider then collects. | Open |
 | 19 | Branches | Where branch ids come from, since the redirect's `destination` needs one, and whether the label's branch `code` is accepted anywhere. | Partly answered (observed) |
-| 20 | Status | Whether `Delivery Attempted`, `Out for Delivery` and `Dispatched to <BRANCH>` are real status strings, and what `returned_to_warehouse` means. | Open |
+| 20 | Status | Whether `Delivery Attempted`, `Out for Delivery` and `Dispatched to <BRANCH>` are real status strings, and what `returned_to_warehouse` means. | Partly answered (observed) |
 | 21 | Comments | Whether posting a comment or a ticket response is idempotent in any way, since a comment returns no id. | Open |
 | 22 | Customers | Whether customer detail's `orders` covers only your account, and the terms for using rating stats, which describe other vendors' orders. | Open |
 | 23 | Labels | What a barcode should encode, whether a printable label exists, how to set `handling` at create, and which orders have a non-vendor `from`. | Open |
 | 24 | Webhooks | Whether test webhooks carry the same headers as real ones. | Open |
-| 25 | Branches | Raised by the live checks: what `branch_type: "Logistics"` means and whether such a branch can be a pickup or destination branch; how a branch's `surcharge` (which can be negative) relates to the rate; whether rate branch names are matched case-sensitively; whether a real rate can be `"0"`, and why an unknown `type` returns `{"charge": "0"}` instead of an error; whether the branch list will keep answering without a token. | Open |
+| 25 | Branches | Raised by the live checks: what `branch_type: "Logistics"` means and whether such a branch can be a pickup or destination branch; how a branch's `surcharge` (which can be negative) relates to the rate; whether rate branch names are matched case-sensitively; whether a real rate can be `"0"`, and why an unknown `type` returns `{"charge": "0"}` instead of an error; whether the branch list will keep answering without a token. | Partly answered (observed) |
 | 26 | Comments | Raised by the live checks: whether the `pk` on API comment rows is the comment id, and whether it equals a webhook's `comment_id`. | Open |
 | 27 | Orders | Raised by the live checks: which values `vendor_return` takes (only the string `"False"` was seen; is a return `"True"`?), and whether money fields keep their types (decimal strings in the order detail and rates, a JSON number in the label's `cod_charge`). | Open |
 
 ### Answers
 
 Entries dated 2026-11-16 come from read-only calls to the production API with
-one vendor's production token (23 calls, shapes only; see the sources in
+one vendor's production token (26 calls, shapes only; see the sources in
 [api-contract.md](../skills/ncm-integration/references/api-contract.md)). None is confirmed by NCM; ask NCM to
 confirm each before go-live.
 
@@ -1392,10 +1403,12 @@ confirmed by NCM. The production order detail carries `vendor_return` (the
 **string** `"False"`, not a boolean), `trackid` (a string), `active` (a
 boolean), `delivered_date` (`null` before delivery), and two more:
 `destination_branch_name` and `destination_branch_phone`. Each status-history
-row also carries `vendor_return`. Still open: whether vendors may rely on these
-fields, and `/order/redirectable`, which wasn't called.
+row also carries `vendor_return`. `GET /api/v2/vendor/order/redirectable`
+exists and returns the paged `{count, next, previous, results: [{orderid,
+branch, last_delivery_status}]}` the reference integration assumes, 10 to a
+page. Still open: whether vendors may rely on these fields and that endpoint.
 Updated: api-contract.md (endpoint catalog #3 and #6, Order detail, Status
-history and bulk status), SKILL.md.
+history and bulk status, Undocumented endpoints), SKILL.md.
 
 #### 19. Branch ids
 2026-11-16, observed with the production token via read-only calls; not
@@ -1404,6 +1417,24 @@ branch. The rate endpoint accepts neither: it takes names only. Still open:
 whether the redirect's `destination` takes the branch `pk` (redirect wasn't
 called), and whether the label's `code` is accepted anywhere.
 Updated: api-contract.md (Branches and rates, Redirect).
+
+#### 20. Status strings
+2026-11-16, observed with the production token via read-only calls; not
+confirmed by NCM. `Returned to Warehouse` is a real order status: every parcel
+on the first page of `/order/redirectable` had it as `last_delivery_status`.
+That it is the status behind the `returned_to_warehouse` event is [inferred].
+Still open: what it means, and whether `Delivery Attempted`, `Out for
+Delivery` and `Dispatched to <BRANCH>` are real.
+Updated: webhooks-and-statuses.md (Status vocabulary, Mapping template),
+api-contract.md (Undocumented endpoints).
+
+#### 25. Branches and rates
+2026-11-16, observed with the production token via read-only calls; not
+confirmed by NCM. Rate branch names appear to be matched case-insensitively:
+`Tinkune`/`Pokhara` gave the same charge as `TINKUNE`/`POKHARA` (lowercase
+wasn't tried). Still open: `Logistics` branches, `surcharge`, whether a real
+rate can be `"0"`, and whether the branch list keeps answering without a token.
+Updated: api-contract.md (Branches and rates).
 
 Format for an answer NCM gives:
 
